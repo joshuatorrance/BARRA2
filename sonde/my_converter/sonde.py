@@ -21,7 +21,7 @@ class SondeTXT:
         Intended for use with BARRA2.
     """
 
-    MISSING = -999
+    MISSING = -9999
 
     N_LEVS = 100
 
