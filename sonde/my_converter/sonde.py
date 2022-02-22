@@ -220,7 +220,7 @@ class SondeBUFR:
             # I think f_template is a template bufr file?
             self.b_temp = ecc.codes_bufr_new_from_file(f_template)
 
-        self.idx = 0
+        self._year_month_day_index = 0
 
         ecc.codes_set(self.b_temp, 'unpack', 1)
 
@@ -244,12 +244,12 @@ class SondeBUFR:
         for txt_lev_index in range(sonde_txt.n_levs):
             for nc_lev_index in range(sonde_nc.n_levs):
                 if sonde_nc.pressure[nc_lev_index] == sonde_txt.pressure[txt_lev_index]:
-                    if sonde_nc.air_temp[hour_index, nc_lev_index, self.idx] != sonde_nc.MISSING \
-                            and sonde_nc.bias[hour_index, nc_lev_index, self.idx] != sonde_nc.MISSING:
+                    if sonde_nc.air_temp[hour_index, nc_lev_index, self._year_month_day_index] != sonde_nc.MISSING \
+                            and sonde_nc.bias[hour_index, nc_lev_index, self._year_month_day_index] != sonde_nc.MISSING:
                         ecc.codes_set(self.b_temp,
                                       self.air_temp[txt_lev_index],
-                                      np.float64(sonde_nc.air_temp[hour_index, nc_lev_index, self.idx]
-                                                 + sonde_nc.bias[hour_index, nc_lev_index, self.idx]))
+                                      np.float64(sonde_nc.air_temp[hour_index, nc_lev_index, self._year_month_day_index]
+                                                 + sonde_nc.bias[hour_index, nc_lev_index, self._year_month_day_index]))
                     break
 
     def write_temp(self, file_bufr, sonde_txt, sonde_nc):
@@ -297,20 +297,20 @@ class SondeBUFR:
             100 * sonde_txt.date_time.month + \
             sonde_txt.date_time.day
 
-        print(year_month_day, sonde_nc.year_month_day[self.idx])
+        print(year_month_day, sonde_nc.year_month_day[self._year_month_day_index])
 
-        while sonde_nc.year_month_day[self.idx] < year_month_day:
-            self.idx += 1
+        while sonde_nc.year_month_day[self._year_month_day_index] < year_month_day:
+            self._year_month_day_index += 1
 
-        if year_month_day == sonde_nc.year_month_day[self.idx]:
+        if year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
             for hour_index in range(sonde_nc.n_hours):
-                if sonde_txt.date_time.hour == sonde_nc.hours[hour_index, self.idx]:
+                if sonde_txt.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
                     self.t_bias(hour_index, sonde_txt, sonde_nc)
                     break
 
             # What's this if up to? Can I use a for else clause instead? Or inside the loop.
             if hour_index == 1:
-                self.idx += 1
+                self._year_month_day_index += 1
 
         # Avoid unpacking self.b_temp the next time
         ecc.codes_set(self.b_temp, 'pack', 1)
