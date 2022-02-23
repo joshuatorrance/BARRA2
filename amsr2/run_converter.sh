@@ -8,6 +8,13 @@ usage() {
     exit
 }
 
+# Converter Paths
+CONVERT_AMSR2_DIR=/g/data/hd50/jt4085/convert_amsr2/build-amsr2-hdf5-to-bufr-master/install
+CONVERT_BIN=$CONVERT_AMSR2_DIR/convert_amsr2/src/convert_amsr2.exe
+
+# Required Library paths
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONVERT_AMSR2_DIR/hdf5/intel/1.8.20/lib:$CONVERT_AMSR2_DIR/eccodes/intel/2.6.0/lib
+
 # Parse arguments
 while getopts i:o:h flag
 do
@@ -24,9 +31,6 @@ then
   usage
 fi
 
-
-# Path to binary (I have some env vars set)
-CONVERT_BIN="$CONVERT_AMSR2_DIR/convert_amsr2/src/convert_amsr2.exe"
 
 # Run the converter
 $CONVERT_BIN $input $output
