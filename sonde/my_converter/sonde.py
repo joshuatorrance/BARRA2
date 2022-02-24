@@ -138,7 +138,7 @@ class SondeObservation:
         self.wind_direction[lev_index] = int(x[7])
         self.wind_speed[lev_index] = int(x[8])
 
-        if self.lev_type[lev_index] == "21":  # sfc
+        if self.lev_type[lev_index] == 21:  # sfc
             self.station_height = self.ht[lev_index]
 
 
