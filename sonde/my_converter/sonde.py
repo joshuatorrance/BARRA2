@@ -40,20 +40,12 @@ class SondeObservation:
         self.lev_type = None
 
         # Lev arrays
-        # Pressure
         self.pressure = None
         self.ht = None
-
-        # Air temperature
         self.air_temp = None
-
-        # Relative humidity - NOT USED
+        # Not used
         # self.relative_humidity = None
-
-        # Dew point temperature
         self.dew_point_temp = None
-
-        # Wind direction and speed
         self.wind_direction = None
         self.wind_speed = None
 
@@ -67,6 +59,9 @@ class SondeObservation:
 
         # Now that we know the number of levs we can build the arrays
         self.lev_type = np.zeros(self.n_levs)
+        self.pressure = np.zeros(self.n_levs)
+        self.ht = np.zeros(self.n_levs)
+        self.air_temp = np.zeros(self.n_levs)
         #   self.relative_humidity = np.zeros(self.n_levs)    # not used
         self.dew_point_temp = np.zeros(self.n_levs)
         self.wind_direction = np.zeros(self.n_levs)
@@ -138,7 +133,7 @@ class SondeObservation:
         if self.air_temp[lev_index] != ecc.CODES_MISSING_DOUBLE:
             self.air_temp[lev_index] = 0.1 * int(x[4]) + zero_Celsius
 
-        # self.rh[lev_index] = int(x[5])
+        # self.relative_humidity[lev_index] = int(x[5])
         self.dew_point_temp[lev_index] = int(x[6])
         self.wind_direction[lev_index] = int(x[7])
         self.wind_speed[lev_index] = int(x[8])
