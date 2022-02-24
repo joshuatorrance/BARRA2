@@ -68,18 +68,17 @@ def main():
 
     sonde_txt = SondeTXT()
     with open(path_input_txt, 'r') as file_txt:
-        with open(path_output_bufr, 'wb') as file_bufr:
-            # TODO: This "write bufr file" loop should be abstracted into
-            #   a SondeBUFR method
-            not_finished = sonde_txt.read(file_txt)
-            while not_finished:
-                sonde_bufr = SondeBUFR(path_template_bufr)
+        sonde_txt.read(file_txt)
 
-                sonde_bufr.write_temp(file_bufr, sonde_txt, sonde_nc)
+    with open(path_output_bufr, 'wb') as file_bufr:
+        # TODO: This "write bufr file" loop should be abstracted
 
-                not_finished = sonde_txt.read(file_txt)
+        for lev in sonde_txt.levs:
+            sonde_bufr = SondeBUFR(path_template_bufr)
 
-                sonde_bufr.close()
+            sonde_bufr.write_temp(file_bufr, lev, sonde_nc)
+
+            sonde_bufr.close()
 
 
 if __name__ == "__main__":
