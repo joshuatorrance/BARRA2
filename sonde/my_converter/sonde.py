@@ -37,7 +37,6 @@ class SondeObservation:
 
         # Levs (levels? measurements at a given level/altitude/pressure?)
         self.n_levs = None
-        self.lev_type = None
 
         # Lev arrays
         self.pressure = None
@@ -58,7 +57,6 @@ class SondeObservation:
             return False
 
         # Now that we know the number of levs we can build the arrays
-        self.lev_type = np.zeros(self.n_levs)
         self.pressure = np.zeros(self.n_levs)
         self.ht = np.zeros(self.n_levs)
         self.air_temp = np.zeros(self.n_levs)
@@ -122,7 +120,6 @@ class SondeObservation:
             if int(x[i]) == SondeTXT.MISSING:
                 x[i] = ecc.CODES_MISSING_DOUBLE
 
-        self.lev_type[lev_index] = x[0]
         self.pressure[lev_index] = int(x[2])
 
         # geometric height to geopotential height
@@ -138,7 +135,8 @@ class SondeObservation:
         self.wind_direction[lev_index] = int(x[7])
         self.wind_speed[lev_index] = int(x[8])
 
-        if self.lev_type[lev_index] == 21:  # sfc
+        # x[0] is the lev type
+        if x[0] == "21":  # sfc
             self.station_height = self.ht[lev_index]
 
 
