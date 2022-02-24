@@ -59,7 +59,7 @@ class SondeTXT:
 
         self.station_height = None
 
-    def first_line(self, line):
+    def _first_line(self, line):
         """
         Process the first line of the block. It contains header-like info.
 
@@ -84,7 +84,7 @@ class SondeTXT:
         self.lat = 0.0001 * int(x[8])
         self.lon = 0.0001 * int(x[9])
 
-    def read_levs(self, line, ilev):
+    def _read_levs(self, line, ilev):
         """
         process line for each lev
         """
@@ -122,7 +122,7 @@ class SondeTXT:
         if self.lev_type == "21":  # sfc
             self.station_height = self.ht[ilev]
 
-    def read_txt(self, txt_file):
+    def read(self, txt_file):
         """
         Read in txt file, one obs at a time
 
@@ -131,10 +131,10 @@ class SondeTXT:
 
         line = txt_file.readline()
         if line:
-            self.first_line(line)
+            self._first_line(line)
             for i in range(self.n_levs):
                 line = txt_file.readline()
-                self.read_levs(line, i)
+                self._read_levs(line, i)
 
             return True
         else:
