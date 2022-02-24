@@ -232,14 +232,14 @@ class SondeBUFR:
                 12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
                 11062, 55017)
 
-    def __init__(self, template_path):
-        self.pressure = [""] * SondeTXT.N_LEVS
-        self.ht = [""] * SondeTXT.N_LEVS
-        self.air_temp = [""] * SondeTXT.N_LEVS
-        self.dew_point_temp = [""] * SondeTXT.N_LEVS
-        self.wind_direction = [""] * SondeTXT.N_LEVS
-        self.wind_speed = [""] * SondeTXT.N_LEVS
-        for i in range(SondeTXT.N_LEVS):
+    def __init__(self, template_path, n_levs):
+        self.pressure = [""] * n_levs
+        self.ht = [""] * n_levs
+        self.air_temp = [""] * n_levs
+        self.dew_point_temp = [""] * n_levs
+        self.wind_direction = [""] * n_levs
+        self.wind_speed = [""] * n_levs
+        for i in range(n_levs):
             self.pressure[i] = '#' + str(i + 1) + '#pressure'
             self.ht[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
             self.air_temp[i] = '#' + str(i + 1) + '#airTemperature'
@@ -283,7 +283,7 @@ class SondeBUFR:
                                                  + sonde_nc.bias[hour_index, nc_lev_index, self._year_month_day_index]))
                     break
 
-    def write_temp(self, file_bufr, sonde_txt_lev, sonde_nc):
+    def write_temp(self, file_bufr, sonde_txt_obs, sonde_nc):
         """
         write out sonde for barra2
         """
@@ -292,41 +292,41 @@ class SondeBUFR:
 
         # TODO: 0.01 * year? What's going on here?
         #  2022 * 0.01 = 2022 / 100 = 20.22... a float and not the "typicalYearOfCentury"
-        ecc.codes_set(self.b_temp, 'typicalYearOfCentury', 0.01 * sonde_txt_lev.date_time.year)
-        ecc.codes_set(self.b_temp, 'typicalMonth', sonde_txt_lev.date_time.month)
-        ecc.codes_set(self.b_temp, 'typicalDay', sonde_txt_lev.date_time.day)
-        ecc.codes_set(self.b_temp, 'typicalHour', sonde_txt_lev.date_time.hour)
+        ecc.codes_set(self.b_temp, 'typicalYearOfCentury', 0.01 * sonde_txt_obs.date_time.year)
+        ecc.codes_set(self.b_temp, 'typicalMonth', sonde_txt_obs.date_time.month)
+        ecc.codes_set(self.b_temp, 'typicalDay', sonde_txt_obs.date_time.day)
+        ecc.codes_set(self.b_temp, 'typicalHour', sonde_txt_obs.date_time.hour)
 
         ecc.codes_set(self.b_temp,
-                      'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_lev.n_levs)
+                      'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levs)
         ecc.codes_set_array(self.b_temp, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
-        ecc.codes_set(self.b_temp, 'blockNumber', sonde_txt_lev.station_blk)
-        ecc.codes_set(self.b_temp, 'stationNumber', sonde_txt_lev.station_number)
-        ecc.codes_set(self.b_temp, 'year', sonde_txt_lev.date_time.year)
-        ecc.codes_set(self.b_temp, 'month', sonde_txt_lev.date_time.month)
-        ecc.codes_set(self.b_temp, 'day', sonde_txt_lev.date_time.day)
-        ecc.codes_set(self.b_temp, 'hour', sonde_txt_lev.date_time.hour)
+        ecc.codes_set(self.b_temp, 'blockNumber', sonde_txt_obs.station_blk)
+        ecc.codes_set(self.b_temp, 'stationNumber', sonde_txt_obs.station_number)
+        ecc.codes_set(self.b_temp, 'year', sonde_txt_obs.date_time.year)
+        ecc.codes_set(self.b_temp, 'month', sonde_txt_obs.date_time.month)
+        ecc.codes_set(self.b_temp, 'day', sonde_txt_obs.date_time.day)
+        ecc.codes_set(self.b_temp, 'hour', sonde_txt_obs.date_time.hour)
         ecc.codes_set(self.b_temp, 'minute', 0)
-        ecc.codes_set(self.b_temp, 'latitude', sonde_txt_lev.lat)
-        ecc.codes_set(self.b_temp, 'longitude', sonde_txt_lev.lon)
-        ecc.codes_set(self.b_temp, 'heightOfStation', sonde_txt_lev.station_height)
+        ecc.codes_set(self.b_temp, 'latitude', sonde_txt_obs.lat)
+        ecc.codes_set(self.b_temp, 'longitude', sonde_txt_obs.lon)
+        ecc.codes_set(self.b_temp, 'heightOfStation', sonde_txt_obs.station_height)
 
-        for i in range(sonde_txt_lev.n_levs):
-            ecc.codes_set(self.b_temp, self.pressure[i], sonde_txt_lev.pressure[i])
-            ecc.codes_set(self.b_temp, self.ht[i], sonde_txt_lev.ht[i])
-            ecc.codes_set(self.b_temp, self.air_temp[i], sonde_txt_lev.air_temp[i])
-            ecc.codes_set(self.b_temp, self.dew_point_temp[i], sonde_txt_lev.dew_point_temp[i])
-            ecc.codes_set(self.b_temp, self.wind_direction[i], sonde_txt_lev.wind_direction[i])
-            ecc.codes_set(self.b_temp, self.wind_speed[i], sonde_txt_lev.wind_speed[i])
+        for i in range(sonde_txt_obs.n_levs):
+            ecc.codes_set(self.b_temp, self.pressure[i], sonde_txt_obs.pressure[i])
+            ecc.codes_set(self.b_temp, self.ht[i], sonde_txt_obs.ht[i])
+            ecc.codes_set(self.b_temp, self.air_temp[i], sonde_txt_obs.air_temp[i])
+            ecc.codes_set(self.b_temp, self.dew_point_temp[i], sonde_txt_obs.dew_point_temp[i])
+            ecc.codes_set(self.b_temp, self.wind_direction[i], sonde_txt_obs.wind_direction[i])
+            ecc.codes_set(self.b_temp, self.wind_speed[i], sonde_txt_obs.wind_speed[i])
 
         # ecc.codes_set(self.b_temp, 'radiosondeType', t.sonde_type)
 
         # check if bias-corrected temp is available
-        year_month_day = 10000 * sonde_txt_lev.date_time.year + \
-                         100 * sonde_txt_lev.date_time.month + \
-                         sonde_txt_lev.date_time.day
+        year_month_day = 10000 * sonde_txt_obs.date_time.year + \
+                         100 * sonde_txt_obs.date_time.month + \
+                         sonde_txt_obs.date_time.day
 
         print(year_month_day, sonde_nc.year_month_day[self._year_month_day_index])
 
@@ -335,8 +335,8 @@ class SondeBUFR:
 
         if year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
             for hour_index in range(sonde_nc.n_hours):
-                if sonde_txt_lev.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
-                    self.t_bias(hour_index, sonde_txt_lev, sonde_nc)
+                if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
+                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc)
                     break
 
             # What's this if up to? Can I use a for else clause instead? Or inside the loop.

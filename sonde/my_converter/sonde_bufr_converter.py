@@ -73,10 +73,10 @@ def main():
     with open(path_output_bufr, 'wb') as file_bufr:
         # TODO: This "write bufr file" loop should be abstracted
 
-        for lev in sonde_txt.levs:
-            sonde_bufr = SondeBUFR(path_template_bufr)
+        for obs in sonde_txt.levs:
+            sonde_bufr = SondeBUFR(path_template_bufr, obs.n_levs)
 
-            sonde_bufr.write_temp(file_bufr, lev, sonde_nc)
+            sonde_bufr.write_temp(file_bufr, obs, sonde_nc)
 
             sonde_bufr.close()
 
