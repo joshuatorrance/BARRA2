@@ -9,6 +9,13 @@
 #
 # Python 3 installation of eccodes/grib-api seems broken.
 # Changing back to Py2 with as little changes as I can.
+#
+# The following loads python3 and eccodes (something wrong with
+# the default py3 module).
+# pythonlib/netcCDF4 doesn't work with py3 though. :(
+# module load python3/3.8.5
+# module load eccodes3
+#
 
 
 # IMPORTS
