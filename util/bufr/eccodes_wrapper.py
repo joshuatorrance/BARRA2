@@ -103,7 +103,7 @@ class BufrAttribute:
                 return ecc.codes_get_array(self.parent_message.message_id, self.key)
             except grib_errors.HashArrayNoMatchError as err:
                 # What does this error mean? No value for that attribute?
-                print(err.message)
+                print(err)
 
                 return None
         else:
