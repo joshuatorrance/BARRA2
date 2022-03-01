@@ -148,6 +148,11 @@ if __name__ == "__main__":
             print("\tTest getting an iterator over all the attributes:")
             for attr in message.get_attributes():
                 print("\t\t", attr.key)
+                
+                if attr.key == "sequences":
+                    print("\t\t\tSkipping sequences for now. It's troublesome.")
+                    continue
+                
                 print("\t\t\tSize:", attr.getSize())
                 print("\t\t\tValue:", attr.getValue())
 
