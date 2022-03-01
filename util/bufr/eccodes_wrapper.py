@@ -64,6 +64,9 @@ class BufrMessage:
     def get_attributes(self):
         return BufrAttributes(self)
 
+    def get_attribute(self, key):
+        return BufrAttribute(self, key)
+
 
 class BufrAttributes:
     def __init__(self, bufr_message):
@@ -81,35 +84,43 @@ class BufrAttributes:
             raise StopIteration
 
 class BufrAttribute:
-    def __init__(self, bufr, key):
+    def __init__(self, message, key):
         self.key = key
-        self.parent_bufr = bufr
+        self.parent_message = message
 
     def getValue(self):
         # TODO: There's probably a better way to do this.
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
         try:
-            return ecc.codes_get(self.parent_bufr, self.key)
+            return ecc.codes_get(self.parent_message, self.key)
         except grib_errors.ArrayTooSmallError:
-            return ecc.codes_get_array(self.parent_bufr, self.key)
+            return ecc.codes_get_array(self.parent_message, self.key)
 
 
 if __name__ == "__main__":
     test_bufr_file = "../../amsr2/test_data/AMSR2_1.bufr"
 
+    print("Create a BufrFile object:")
     with BufrFile(test_bufr_file) as bufr_obj:
         print(bufr_obj)
 
+        limit = 10
+        print("Load {} messages from the bufr".format(limit))
         i = 0
         for message in bufr_obj.get_messages():
-            print(message)
+            print("\t", i, message)
 
+            print("\tTest getting a particular attribute:")
+            typical_year = message.get_attribute("typicalYear")
+            print("\t\tTypical year:", typical_year.getValue())
+
+            print("\tTest getting an iterator over all the attributes:")
             for attr in message.get_attributes():
-                print(attr.key)
+                print("\t\t", attr.key)
 
 
-            if i > 10:
+            if i > limit:
                 break
             else:
                 i += 1
