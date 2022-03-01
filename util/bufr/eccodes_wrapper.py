@@ -127,6 +127,10 @@ class BufrAttribute:
 
 
 if __name__ == "__main__":
+    # I want to truncate the printing of numpy arrays.
+    import numpy
+    numpy.set_printoptions(threshold=5)
+
     test_bufr_file = "../../amsr2/test_data/AMSR2_1.bufr"
 
     print("Create a BufrFile object:")
