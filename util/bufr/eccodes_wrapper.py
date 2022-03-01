@@ -95,10 +95,19 @@ class BufrAttribute:
         # TODO: There's probably a better way to do this.
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
-        try:
-            return ecc.codes_get(self.parent_message.message_id, self.key)
-        except grib_errors.ArrayTooSmallError:
-            return ecc.codes_get_array(self.parent_message.message_id, self.key)
+        if ecc.codes_is_defined(self.parent_message.message_id, self.key):
+            try:
+                return ecc.codes_get(self.parent_message.message_id, self.key)
+            except grib_errors.ArrayTooSmallError:
+                # If codes_get fails with ArrayTooSmallError then the attribute may be an array.
+                return ecc.codes_get_array(self.parent_message.message_id, self.key)
+            except grib_errors.HashArrayNoMatchError as err:
+                # What does this error mean? No value for that attribute?
+                print(err.message)
+
+                return None
+        else:
+            print("BufrAttribute:", self.key, "not defined.")
 
 
 if __name__ == "__main__":
