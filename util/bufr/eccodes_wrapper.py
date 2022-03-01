@@ -76,7 +76,7 @@ class BufrAttributes:
         self.parent_bufr_message = bufr_message
 
     def __iter__(self):
-        iterator_id = ecc.codes_keys_iterator_new(self.parent_bufr_message.cur_message_id)
+        iterator_id = ecc.codes_keys_iterator_new(self.parent_bufr_message.message_id)
 
         self.iterator_id = iterator_id
 
