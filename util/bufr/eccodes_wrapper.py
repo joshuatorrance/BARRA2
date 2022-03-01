@@ -153,8 +153,13 @@ if __name__ == "__main__":
                     print("\t\t\tSkipping sequences for now. It's troublesome.")
                     continue
                 
-                print("\t\t\tSize:", attr.getSize())
-                print("\t\t\tValue:", attr.getValue())
+                size = attr.getSize()
+                print("\t\t\tSize:", size)
+                
+                value = attr.getValue()
+                print("\t\t\tValue:", value)
+
+                print("\t\t\tType:", type(value))
 
 
             if i > limit:
