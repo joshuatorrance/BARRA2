@@ -93,9 +93,9 @@ class BufrAttribute:
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
         try:
-            return ecc.codes_get(self.parent_message, self.key)
+            return ecc.codes_get(self.parent_message.message_id, self.key)
         except grib_errors.ArrayTooSmallError:
-            return ecc.codes_get_array(self.parent_message, self.key)
+            return ecc.codes_get_array(self.parent_message.message_id, self.key)
 
 
 if __name__ == "__main__":
