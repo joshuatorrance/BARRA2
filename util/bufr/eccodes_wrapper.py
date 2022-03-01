@@ -30,6 +30,9 @@ class BufrFile:
     def get_messages(self):
         return BufrMessages(self)
 
+    def getNumberMessages(self):
+        return ecc.codes_count_in_file(self.file_obj)
+
 
 class BufrMessages:
     def __init__(self, bufr):
@@ -105,6 +108,8 @@ if __name__ == "__main__":
     with BufrFile(test_bufr_file) as bufr_obj:
         print("\t", bufr_obj)
 
+        print("Number of messages in file:", bufr_obj.getNumberMessages())
+
         limit = 10
         print("Load {} messages from the bufr".format(limit))
         i = 0
@@ -126,4 +131,7 @@ if __name__ == "__main__":
                 break
             else:
                 i += 1
+
+        print("Is the number of messages the same partway through the file?")
+        print("Number of messages in file:", bufr_obj.getNumberMessages())
 
