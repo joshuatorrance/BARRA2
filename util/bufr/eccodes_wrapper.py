@@ -15,12 +15,12 @@ from gribapi import errors as grib_errors
 
 # CLASSES
 class BufrFile:
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self, filepath):
+        self.filepath = filepath
 
     def __enter__(self):
         # TODO: Update with write as an option too.
-        self.file_obj = open(self.filename, 'rb')
+        self.file_obj = open(self.filepath, 'rb')
 
         return self
 
@@ -28,11 +28,6 @@ class BufrFile:
         self.file_obj.close()
 
     def get_messages(self):
-        """
-        Return an  interator that provides the messages for the extant bufr file.
-
-        :return: An iterator that returns the ecCodes message ids.
-        """
         return BufrMessages(self)
 
 
@@ -40,26 +35,25 @@ class BufrMessages:
     def __init__(self, bufr):
         self.parent_bufr = bufr
 
-        self.cur_message_id = None
-        self.cur_message = None
+        self.current_message = None
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.cur_message_id:
-            ecc.codes_release(self.cur_message_id)
+        if self.current_message:
+            ecc.codes_release(self.current_message.message_id)
 
         new_message_id = ecc.codes_bufr_new_from_file(self.parent_bufr.file_obj)
 
         if new_message_id is None:
-            self.cur_message = None
+            self.current_message = None
 
             raise StopIteration
         else:
-            self.cur_message = BufrMessage(self.parent_bufr, new_message_id)
+            self.current_message = BufrMessage(self.parent_bufr, new_message_id)
 
-            return self.cur_message
+            return self.current_message
 
 
 class BufrMessage:
