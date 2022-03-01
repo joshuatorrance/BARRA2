@@ -103,13 +103,13 @@ if __name__ == "__main__":
 
     print("Create a BufrFile object:")
     with BufrFile(test_bufr_file) as bufr_obj:
-        print(bufr_obj)
+        print("\t", bufr_obj)
 
         limit = 10
         print("Load {} messages from the bufr".format(limit))
         i = 0
         for message in bufr_obj.get_messages():
-            print("\t", i, message)
+            print(i, message)
 
             print("\tTest getting a particular attribute:")
             typical_year = message.get_attribute("typicalYear")
