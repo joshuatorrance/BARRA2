@@ -96,8 +96,6 @@ class BufrAttribute:
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
         if ecc.codes_is_defined(self.parent_message.message_id, self.key):
-            print("BufrAttribute: codes_get_size:", self.getSize())
-
             try:
                 return ecc.codes_get(self.parent_message.message_id, self.key)
             except grib_errors.ArrayTooSmallError:
@@ -105,14 +103,20 @@ class BufrAttribute:
                 return ecc.codes_get_array(self.parent_message.message_id, self.key)
             except grib_errors.HashArrayNoMatchError as err:
                 # What does this error mean? No value for that attribute?
-                print("BufrAttribute:", err)
+                print("BufrAttribute.getValue:", err)
 
                 return None
         else:
             print("BufrAttribute:", self.key, "not defined.")
 
     def getSize(self):
-        return ecc.codes_get_size(self.parent_message.message_id, self.key)
+        try:
+            return ecc.codes_get_size(self.parent_message.message_id, self.key)
+        except grib_errors.HashArrayNoMatchError as err:
+            # What does this error mean? No value for that attribute?
+            print("BufrAttribute.getSize:", err)
+
+            return None
 
 
 if __name__ == "__main__":
