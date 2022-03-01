@@ -96,8 +96,8 @@ class BufrAttribute:
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
         if ecc.codes_is_defined(self.parent_message.message_id, self.key):
-            print("BufrAttribute: codes_get_size:", ecc.codes_get_size(self.parent_message.message_id, self.key))
-            
+            print("BufrAttribute: codes_get_size:", self.getSize())
+
             try:
                 return ecc.codes_get(self.parent_message.message_id, self.key)
             except grib_errors.ArrayTooSmallError:
@@ -110,6 +110,9 @@ class BufrAttribute:
                 return None
         else:
             print("BufrAttribute:", self.key, "not defined.")
+
+    def getSize(self):
+        return ecc.codes_get_size(self.parent_message.message_id, self.key)
 
 
 if __name__ == "__main__":
@@ -134,8 +137,8 @@ if __name__ == "__main__":
             print("\tTest getting an iterator over all the attributes:")
             for attr in message.get_attributes():
                 print("\t\t", attr.key)
-
-                print("\t\t\t", attr.getValue())
+                print("\t\t\tSize:", attr.getSize())
+                print("\t\t\tValue:", attr.getValue())
 
 
             if i > limit:
