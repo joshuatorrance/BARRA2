@@ -119,6 +119,8 @@ if __name__ == "__main__":
             for attr in message.get_attributes():
                 print("\t\t", attr.key)
 
+                print("\t\t\t", attr.getValue())
+
 
             if i > limit:
                 break
