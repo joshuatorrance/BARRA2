@@ -10,6 +10,7 @@
 
 # IMPORTS
 import eccodes as ecc
+from gribapi import errors as grib_errors
 
 
 # CLASSES
@@ -40,6 +41,7 @@ class BufrMessages:
         self.parent_bufr = bufr
 
         self.cur_message_id = None
+        self.cur_message = None
 
     def __iter__(self):
         return self
@@ -48,16 +50,27 @@ class BufrMessages:
         if self.cur_message_id:
             ecc.codes_release(self.cur_message_id)
 
-        self.cur_message_id = ecc.codes_bufr_new_from_file(self.parent_bufr.file_obj)
+        new_message_id = ecc.codes_bufr_new_from_file(self.parent_bufr.file_obj)
 
-        if self.cur_message_id is None:
+        if new_message_id is None:
+            self.cur_message = None
+
             raise StopIteration
         else:
-            return self.cur_message_id
+            self.cur_message = BufrMessage(new_message_id)
+
+            return self.cur_message
 
 
-# TODO: get BufrMessages to return a BufrMessage so that said message can be
-#  asked for it's BufrAttributes (or header or...).
+class BufrMessage:
+    def __init__(self, bufr, message_id):
+        self.parent_bufr = bufr
+        self.message_id = message_id
+
+    def get_attributes(self):
+        return BufrAttributes(self.parent_bufr)
+
+
 class BufrAttributes:
     def __init__(self, bufr_message):
         self.parent_bufr_message = bufr_message
@@ -69,9 +82,23 @@ class BufrAttributes:
 
     def __next__(self):
         if ecc.codes_bufr_keys_iterator_next(self.iterator_id):
-            return ecc.codes_keys_iterator_get_name(self.iterator_id)
+            return BufrAttribute(self.parent_bufr_message, ecc.codes_keys_iterator_get_name(self.iterator_id))
         else:
             raise StopIteration
+
+class BufrAttribute:
+    def __init__(self, bufr, key):
+        self.key = key
+        self.parent_bufr = bufr
+
+    def getValue(self):
+        # TODO: THere's probably a better way to do this.
+        #  Can I ask the type and then use the appropriate method rather
+        #  than try/except?
+        try:
+            return ecc.codes_get(self.parent_bufr, self.key)
+        except grib_errors.ArrayTooSmallError:
+            return ecc.codes_get_array(self.parent_bufr, self.key)
 
 
 if __name__ == "__main__":
@@ -83,6 +110,10 @@ if __name__ == "__main__":
         i = 0
         for message in bufr_obj.get_messages():
             print(message)
+
+            for attr in message.get_attributes():
+                print(attr.key())
+
 
             if i > 10:
                 break
