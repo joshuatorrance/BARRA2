@@ -161,7 +161,7 @@ if __name__ == "__main__":
                 print("\t\t\tSize:", size)
                 
                 value = attr.getValue()
-                print("\t\t\tValue:", value)
+                print("\t\t\tValue:", numpy.array(value))
 
                 print("\t\t\tType:", type(value))
 
