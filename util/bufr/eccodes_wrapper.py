@@ -67,16 +67,16 @@ class BufrMessage:
 
 class BufrAttributes:
     def __init__(self, bufr_message):
-        self.parent_bufr_message = bufr_message
+        self.parent_message = bufr_message
 
     def __iter__(self):
-        self.iterator_id = ecc.codes_bufr_keys_iterator_new(self.parent_bufr_message.message_id)
+        self.iterator_id = ecc.codes_bufr_keys_iterator_new(self.parent_message.message_id)
 
         return self
 
     def __next__(self):
         if ecc.codes_bufr_keys_iterator_next(self.iterator_id):
-            return BufrAttribute(self.parent_bufr_message, ecc.codes_keys_iterator_get_name(self.iterator_id))
+            return BufrAttribute(self.parent_message, ecc.codes_keys_iterator_get_name(self.iterator_id))
         else:
             raise StopIteration
 
