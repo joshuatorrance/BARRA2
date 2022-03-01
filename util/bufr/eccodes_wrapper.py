@@ -62,7 +62,7 @@ class BufrMessage:
         self.message_id = message_id
 
     def get_attributes(self):
-        return BufrAttributes(self.parent_bufr)
+        return BufrAttributes(self)
 
 
 class BufrAttributes:
@@ -70,9 +70,9 @@ class BufrAttributes:
         self.parent_bufr_message = bufr_message
 
     def __iter__(self):
-        iterator_id = ecc.codes_keys_iterator_new(self.parent_bufr_message.message_id)
+        self.iterator_id = ecc.codes_bufr_keys_iterator_new(self.parent_bufr_message.message_id)
 
-        self.iterator_id = iterator_id
+        return self
 
     def __next__(self):
         if ecc.codes_bufr_keys_iterator_next(self.iterator_id):
@@ -86,7 +86,7 @@ class BufrAttribute:
         self.parent_bufr = bufr
 
     def getValue(self):
-        # TODO: THere's probably a better way to do this.
+        # TODO: There's probably a better way to do this.
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
         try:
