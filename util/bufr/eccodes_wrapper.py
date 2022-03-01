@@ -106,7 +106,7 @@ if __name__ == "__main__":
             print(message)
 
             for attr in message.get_attributes():
-                print(attr.key())
+                print(attr.key)
 
 
             if i > 10:
