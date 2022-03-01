@@ -97,6 +97,8 @@ class BufrAttribute:
         #  than try/except?
         if ecc.codes_is_defined(self.parent_message.message_id, self.key):
             if ecc.codes_is_missing(self.parent_message.message_id, self.key):
+                return "MISSING"
+            else:
                 size = self.getSize()
                 if size == 1:
                     try:
@@ -109,9 +111,7 @@ class BufrAttribute:
                 elif size > 1:
                     return ecc.codes_get_array(self.parent_message.message_id, self.key)
                 else:
-                    raise ValueError("BufrAttribute ({}) size is not >= 1.".format(self.key))
-            else:
-                return "MISSING"    
+                    raise ValueError("BufrAttribute ({}) size is not >= 1.".format(self.key))   
         else:
             raise ValueError("BufrAttribute ({}) not defined.".format(self.key))
 
