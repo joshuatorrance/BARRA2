@@ -100,7 +100,11 @@ class BufrAttribute:
                 return "MISSING"
             else:
                 size = self.getSize()
-                if size == 1:
+                if size > 1:
+                    return ecc.codes_get_array(self.parent_message.message_id, self.key)
+                    
+                else:
+                    # Sometimes size is zero, codes_get seems to return None in this case
                     try:
                         return ecc.codes_get(self.parent_message.message_id, self.key)
                     except grib_errors.HashArrayNoMatchError as err:
@@ -108,10 +112,6 @@ class BufrAttribute:
                         print("BufrAttribute.getValue:", err)
 
                         return None
-                elif size > 1:
-                    return ecc.codes_get_array(self.parent_message.message_id, self.key)
-                else:
-                    raise ValueError("BufrAttribute ({}) size is not >= 1.".format(self.key))   
         else:
             raise ValueError("BufrAttribute ({}) not defined.".format(self.key))
 
