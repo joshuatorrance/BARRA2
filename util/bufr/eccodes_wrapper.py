@@ -57,7 +57,7 @@ class BufrMessages:
 
             raise StopIteration
         else:
-            self.cur_message = BufrMessage(new_message_id)
+            self.cur_message = BufrMessage(self.parent_bufr, new_message_id)
 
             return self.cur_message
 
