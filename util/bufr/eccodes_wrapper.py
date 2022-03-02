@@ -34,7 +34,7 @@ class BufrFile:
     def get_messages(self):
         return BufrMessages(self)
 
-    def getNumberMessages(self):
+    def get_number_messages(self):
         return ecc.codes_count_in_file(self.file_obj)
 
 
@@ -90,12 +90,13 @@ class BufrAttributes:
         else:
             raise StopIteration
 
+
 class BufrAttribute:
     def __init__(self, message, key):
         self.key = key
         self.parent_message = message
 
-    def getValue(self):
+    def get_value(self):
         # TODO: There's probably a better way to do this.
         #  Can I ask the type and then use the appropriate method rather
         #  than try/except?
@@ -103,7 +104,7 @@ class BufrAttribute:
             if ecc.codes_is_missing(self.parent_message.message_id, self.key):
                 return "MISSING"
             else:
-                size = self.getSize()
+                size = self.get_size()
                 if size > 1:
                     return ecc.codes_get_array(self.parent_message.message_id, self.key)
                     
@@ -119,8 +120,7 @@ class BufrAttribute:
         else:
             raise ValueError("BufrAttribute ({}) not defined.".format(self.key))
 
-
-    def getSize(self):
+    def get_size(self):
         try:
             return ecc.codes_get_size(self.parent_message.message_id, self.key)
         except grib_errors.HashArrayNoMatchError as err:
@@ -141,34 +141,33 @@ if __name__ == "__main__":
     with BufrFile(test_bufr_file) as bufr_obj:
         print("\t", bufr_obj)
 
-        print("Number of messages in file:", bufr_obj.getNumberMessages())
+        print("Number of messages in file:", bufr_obj.get_number_messages())
 
         limit = 10
         print("Load {} messages from the bufr".format(limit))
         i = 0
-        for message in bufr_obj.get_messages():
-            print(i, message)
+        for msg in bufr_obj.get_messages():
+            print(i, msg)
 
             print("\tTest getting a particular attribute:")
-            typical_year = message.get_attribute("typicalYear")
-            print("\t\tTypical year:", typical_year.getValue())
+            typical_year = msg.get_attribute("typicalYear")
+            print("\t\tTypical year:", typical_year.get_value())
 
             print("\tTest getting an iterator over all the attributes:")
-            for attr in message.get_attributes():
+            for attr in msg.get_attributes():
                 print("\t\t", attr.key)
                 
                 if attr.key == "sequences":
                     print("\t\t\tSkipping sequences for now. It's troublesome.")
                     continue
                 
-                size = attr.getSize()
-                print("\t\t\tSize:", size)
+                sze = attr.get_size()
+                print("\t\t\tSize:", sze)
                 
-                value = attr.getValue()
+                value = attr.get_value()
                 print("\t\t\tValue:", numpy.array(value))
 
                 print("\t\t\tType:", type(value))
-
 
             if i > limit:
                 break
@@ -176,5 +175,5 @@ if __name__ == "__main__":
                 i += 1
 
         print("Is the number of messages the same partway through the file?")
-        print("Number of messages in file:", bufr_obj.getNumberMessages())
+        print("Number of messages in file:", bufr_obj.get_number_messages())
 
