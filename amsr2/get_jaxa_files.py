@@ -36,8 +36,8 @@ DATA_DIR = 'data/2019'
 HDF_EXT = '.h5'
 BUFR_EXT = '.bufr'
 
-# File limit, use for testing, set very high to process all files.
-MAX_FILES = 999999
+# File limit, use for testing, set to None for no limit.
+MAX_FILES = None
 
 
 # FUNCTIONS
