@@ -37,7 +37,7 @@ HDF_EXT = '.h5'
 BUFR_EXT = '.bufr'
 
 # File limit, use for testing, set to None for no limit.
-MAX_FILES = None
+MAX_FILES = 100
 
 
 # FUNCTIONS
@@ -269,15 +269,118 @@ def process_files(ftp_file_paths, data_d=DATA_DIR,
 
 # SCRIPT
 if __name__ == "__main__":
-    with FTP(JAXA_FTP) as ftp_connection:
-        ret = ftp_connection.login(user=FTP_USERNAME, passwd=FTP_PASSWORD)
+    if False:
+        with FTP(JAXA_FTP) as ftp_connection:
+            ret = ftp_connection.login(user=FTP_USERNAME, passwd=FTP_PASSWORD)
 
-        y_regex = "2019"
-        m_regex = "12"
-        list_of_files = jaxa_get_full_list_of_filepaths(ftp_connection, FTP_DIR,
-                                                        year_regex=y_regex,
-                                                        month_regex=m_regex)
+            y_regex = "2019"
+            m_regex = "12"
+            list_of_files = jaxa_get_full_list_of_filepaths(ftp_connection, FTP_DIR,
+                                                            year_regex=y_regex,
+                                                            month_regex=m_regex)
 
-    process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
+        process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
 
+    if False:
+        from glob import glob
+        from h5py import File as hdfFile
+        from math import floor, ceil
 
+        file_list = glob(join(DATA_DIR, '*.h5'))
+        file_list.sort()
+
+        # datetime makes presumptions about timezones, specify timezone to avoid
+        # problems and confusion
+        first_dt = datetime.strptime(get_date_string_from_filename(file_list[0]) + "+0000",
+                                     JAXA_DT_FORMAT + "%z")
+        last_dt = datetime.strptime(get_date_string_from_filename(file_list[-1]) + "+0000",
+                                    JAXA_DT_FORMAT + "%z")
+
+        # Bins are 6 hours long
+        bin_size_sec = 60 * 60 * 6
+        # Bins are centred on 00:00, 06:00, 12:00, 18:00
+        # Thus an offset of 3 hours compared to midnight on Jan 1 1970
+        offset = bin_size_sec / 2
+
+        print("first")
+        print('\t', first_dt)
+        print('\t', first_dt.timestamp())
+
+        # timestamp give seconds since midnight, 1st Jan 1970
+        # apply offset since our bins don't start at midnight
+        # divide by bin duration, floor/ceil to get start/end of bin
+        # multiply by binsize and reapply the offset to get the timestamp for the bin edge
+        def align_bin(dt, offset, bin_size_sec, edge="start"):
+            if edge == "start":
+                func = floor
+            elif edge == "end":
+                func = ceil
+            else:
+                raise ValueError("align_bin: edge must be \"start\" or \"end\"")
+
+            timestamp = dt.timestamp()
+            aligned_timestamp = func((timestamp - offset) / bin_size_sec) * bin_size_sec + offset
+
+            return datetime.utcfromtimestamp(aligned_timestamp)
+
+        start_of_start_bin = align_bin(first_dt, offset, bin_size_sec, edge="start")
+        end_of_end_bin = align_bin(last_dt, offset, bin_size_sec, edge="end")
+
+        n_bins = int((end_of_end_bin - start_of_start_bin).total_seconds() / bin_size_sec)
+
+        bins = []
+        for i in range(n_bins):
+            bin_dict = {
+                "start": start_of_start_bin + i * timedelta(seconds=bin_size_sec),
+                "end": start_of_start_bin + (i+1) * timedelta(seconds=bin_size_sec),
+            }
+
+            bins.append(bin_dict)
+
+        file_dict_list = []
+        for f in file_list:
+            print(f)
+
+            try:
+                with hdfFile(f) as hdf:
+                    # Attribute is stored as a one element numpy array for some reason.
+                    # Datetime string has a Z on the end which doesn't match the ISO format replace it with +00:00
+                    iso_start_dt_str = hdf.attrs['ObservationStartDateTime'][0].replace('Z', '+00:00')
+                    iso_end_dt_str = hdf.attrs['ObservationEndDateTime'][0].replace('Z', '+00:00')
+
+                    start_datetime = datetime.fromisoformat(iso_start_dt_str)
+                    end_datetime = datetime.fromisoformat(iso_end_dt_str)
+
+                    print('\t', start_datetime)
+                    print('\t', end_datetime)
+
+                    file_dict = {'filepath': f, 'start_dt': start_datetime, 'end_dt': end_datetime}
+
+                    file_dict_list.append(file_dict)
+            except OSError:
+                delete_file(f)
+
+    if True:
+        from glob import glob
+        from h5py import File as hdfFile
+
+        f = glob(join(DATA_DIR, '*.h5'))[0]
+
+        with hdfFile(f) as hdf:
+            # Attribute is stored as a one element numpy array for some reason.
+            # Datetime string has a Z on the end which doesn't match the ISO format replace it with +00:00
+            iso_start_dt_str = hdf.attrs['ObservationStartDateTime'][0].replace('Z', '+00:00')
+            iso_end_dt_str = hdf.attrs['ObservationEndDateTime'][0].replace('Z', '+00:00')
+
+            start_datetime = datetime.fromisoformat(iso_start_dt_str)
+            end_datetime = datetime.fromisoformat(iso_end_dt_str)
+
+            mid_datetime = start_datetime + (end_datetime-start_datetime) / 2
+
+            print('\t', start_datetime)
+            print('\t', end_datetime)
+            print('\t', mid_datetime)
+
+            # TODO: split file along the midpoint
+            #   copy file and remove?
+            #   fresh file and add everything?
