@@ -6,6 +6,10 @@
 #
 # Very much a Work in Progress.
 #
+# The following modules are required:
+# module load python3/3.8.5
+# module load eccodes3
+#
 # Author: Joshua Torrance
 
 # IMPORTS
