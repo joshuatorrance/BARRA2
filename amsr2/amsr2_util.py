@@ -37,7 +37,7 @@ def get_bins(start_dt, end_dt, offset_sec=3*60*60, bin_size_sec=6*60*60):
 
         cur_bin_start_dt = cur_bin_end_dt
 
-        if cur_bin_start_dt>=end_dt:
+        if cur_bin_start_dt >= end_dt:
             break
 
     return bin_list
@@ -87,47 +87,47 @@ def _get_split_index(hdf_filepath, split_point_dt):
 
             return split_index
         else:
-            raise ValueERror("hdf_util._get_split_index: split_point_dt "
+            raise ValueError("hdf_util._get_split_index: split_point_dt "
                              "outside HDF file's datetime range.")
 
 
 def _filter_amsr2_hdf(hdf_filepath, split_index, mode='before'):
-            with hdfFile(hdf_filepath, 'r+') as hdf:
-                # Get the length of scan time so we can ensure we're
-                # splitting on the correct dimension.
-                t_length = hdf['Scan Time'].size
+    with hdfFile(hdf_filepath, 'r+') as hdf:
+        # Get the length of scan time so we can ensure we're
+        # splitting on the correct dimension.
+        t_length = hdf['Scan Time'].size
 
-                # Build the indices for the split
-                indices = None
-                if mode=='before':
-                    indices = range(split_index)
-                elif mode=='after':
-                    indices = range(split_index, t_length)
-                else:
-                    raise ValueError("filter_amsr2_hdf: mode must be \"before\" or \"after\"")
+        # Build the indices for the split
+        if mode == 'before':
+            indices = range(split_index)
+        elif mode == 'after':
+            indices = range(split_index, t_length)
+        else:
+            raise ValueError("filter_amsr2_hdf: mode must be \"before\" or \"after\"")
 
-                # Split every dataset in the file
-                for key in hdf:
-                    dataset = hdf[key]
+        # Split every dataset in the file
+        for key in hdf:
+            dataset = hdf[key]
 
-                    # Determine which axis to split along
-                    split_axis = None
-                    for i, axis_len in enumerate(dataset.shape):
-                        if axis_len == t_length:
-                            # Assume this is the axis to split along
-                            # If another axis has the same length we might be in trouble.
-                            split_axis = i
-                            break
+            # Determine which axis to split along
+            split_axis = None
+            for i, axis_len in enumerate(dataset.shape):
+                if axis_len == t_length:
+                    # Assume this is the axis to split along
+                    # If another axis has the same length we might be in trouble.
+                    split_axis = i
+                    break
 
-                    # Convert the h5py dataset to a numpy array and
-                    # split it
-                    arr = array(dataset).take(indices, axis=split_axis)
+            # Convert the h5py dataset to a numpy array and
+            # split it
+            arr = array(dataset).take(indices, axis=split_axis)
 
-                    # Resize the existing dataset to the new array size
-                    dataset.resize(arr.shape)
+            # Resize the existing dataset to the new array size
+            dataset.resize(arr.shape)
 
-                    # Write the new array to the dataset
-                    dataset[...] = arr
+            # Write the new array to the dataset
+            dataset[...] = arr
+
 
 def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
     # Determine the index of the split_point
@@ -149,8 +149,3 @@ def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
     # Filter out the data before/after the split point on each copy.
     _filter_amsr2_hdf(f_before, split_index, mode='before')
     _filter_amsr2_hdf(f_after, split_index, mode='after')
-
-
-
-
-
