@@ -306,22 +306,7 @@ if __name__ == "__main__":
         print('\t', first_dt)
         print('\t', first_dt.timestamp())
 
-        # timestamp give seconds since midnight, 1st Jan 1970
-        # apply offset since our bins don't start at midnight
-        # divide by bin duration, floor/ceil to get start/end of bin
-        # multiply by binsize and reapply the offset to get the timestamp for the bin edge
-        def align_bin(dt, offset, bin_size_sec, edge="start"):
-            if edge == "start":
-                func = floor
-            elif edge == "end":
-                func = ceil
-            else:
-                raise ValueError("align_bin: edge must be \"start\" or \"end\"")
-
-            timestamp = dt.timestamp()
-            aligned_timestamp = func((timestamp - offset) / bin_size_sec) * bin_size_sec + offset
-
-            return datetime.utcfromtimestamp(aligned_timestamp)
+        from amsr2_util import align_bin
 
         start_of_start_bin = align_bin(first_dt, offset, bin_size_sec, edge="start")
         end_of_end_bin = align_bin(last_dt, offset, bin_size_sec, edge="end")
@@ -361,26 +346,28 @@ if __name__ == "__main__":
                 delete_file(f)
 
     if True:
-        from glob import glob
-        from h5py import File as hdfFile
+        from amsr2_util import get_bins
 
-        f = glob(join(DATA_DIR, '*.h5'))[0]
+        # For a time range
+        #   determine the bins
+        #   grab the data for those bins
+        #       split edge files as required
 
-        with hdfFile(f) as hdf:
-            # Attribute is stored as a one element numpy array for some reason.
-            # Datetime string has a Z on the end which doesn't match the ISO format replace it with +00:00
-            iso_start_dt_str = hdf.attrs['ObservationStartDateTime'][0].replace('Z', '+00:00')
-            iso_end_dt_str = hdf.attrs['ObservationEndDateTime'][0].replace('Z', '+00:00')
+        start_dt = datetime.fromisoformat("2019-12-01T00:00+00:00")
+        end_dt = datetime.fromisoformat("2019-12-03T00:00+00:00")
 
-            start_datetime = datetime.fromisoformat(iso_start_dt_str)
-            end_datetime = datetime.fromisoformat(iso_end_dt_str)
+        print("start_dt:", start_dt)
+        print("end_dt:", end_dt)
 
-            mid_datetime = start_datetime + (end_datetime-start_datetime) / 2
+        bins = get_bins(start_dt, end_dt)
 
-            print('\t', start_datetime)
-            print('\t', end_datetime)
-            print('\t', mid_datetime)
+        for b in bins:
+            # For each bin grab the files from JAXA to fill the bin.
+            # This likely includes a file whose name/timestamp is before
+            # the bin window.
+            print(b['mid'])
 
-            # TODO: split file along the midpoint
-            #   copy file and remove?
-            #   fresh file and add everything?
+            # TODO: Finish the implementation.
+
+
+
