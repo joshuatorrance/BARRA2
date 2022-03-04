@@ -389,7 +389,8 @@ if __name__ == "__main__":
 
             # Archive directory
             archive_dir = join(DATA_DIR,
-                               str(b['mid'].year), str(b['mid'].month),
+                               "{:04d}".format(b['mid'].year),
+                               "{:02d}".format(b['mid'].month),
                                b['mid'].strftime(ARCHIVE_DT_FORMAT))
 
             # Organise the files into the archive
