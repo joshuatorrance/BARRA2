@@ -65,12 +65,18 @@ def align_bin(dt, offset_sec=3*60*60, bin_size_sec=6*60*60, edge="start"):
     return dt
 
 
-def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_'):
+def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_', include_hour_before=False):
     # Builds regexes to match the file structure of the JAXA G-Portal FTP server
     # Structure is something like YYYY/MM/GW1AM2_YYYYMMDDhhmm_xxxx_L1SGBTBR_2220220.h5
 
     # Filenames look like - GW1AM2_201912010040_180A_L1SGBTBR_2220220.h5
     # ^ static, _ dynamic   ^^^^^^^____________^____^^^^^^^^^^^^^^^^^^^^
+
+    # include_hour_before tacks on the hour before the start of start_dt
+    #   This is done to include the data between start_dt and the start of the first file after start_dt
+    #   This function relies on JAXA data files having less than an hour between them
+    if include_hour_before:
+        start_dt = start_dt - timedelta(hours=1)
 
     # Years dir regex
     year_regex = "|".join([str(x) for x in
@@ -189,9 +195,11 @@ def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
         f_before = output_filepaths[0]
         f_after = output_filepaths[1]
 
-    copyfile(hdf_filepath, f_before)
-    copyfile(hdf_filepath, f_after)
-    
     # Filter out the data before/after the split point on each copy.
-    _filter_amsr2_hdf(f_before, split_index, mode='before')
-    _filter_amsr2_hdf(f_after, split_index, mode='after')
+    if f_before:
+        copyfile(hdf_filepath, f_before)
+        _filter_amsr2_hdf(f_before, split_index, mode='before')
+
+    if f_after:
+        copyfile(hdf_filepath, f_after)
+        _filter_amsr2_hdf(f_after, split_index, mode='after')
