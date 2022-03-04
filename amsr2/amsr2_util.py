@@ -6,7 +6,8 @@
 from h5py import File as hdfFile
 from shutil import copyfile
 from datetime import datetime, timedelta, timezone
-from os.path import splitext
+from os import remove as delete_file
+from os.path import splitext, exists
 from numpy import array
 from math import floor, ceil
 
@@ -197,6 +198,13 @@ def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
 
     # Ensure the output files do not have the same filepath
     if f_before == f_after:
+        # Clean up copied files
+        if hdf_filepath != f_before and exists(f_before):
+            delete_file(f_before)
+
+        if hdf_filepath != f_after and exists(f_after):
+            delete_file(f_after)
+
         raise ValueError("amsr2_util.split_hdf_at_datetime: output files have the same filepath.")
 
     # Copy the files
