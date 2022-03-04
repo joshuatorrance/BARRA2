@@ -1,14 +1,15 @@
 #!/bin/python3
 
 from ftplib import FTP
-from shutil import copyfile
-from os import remove as delete_file, makedirs
+from shutil import copyfile, move as move_file
+from os import remove as delete_file, rmdir, makedirs
 from os.path import basename, exists, splitext, dirname, join
 from re import search, sub
 from subprocess import call
 from sys import stdout
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool
+from functools import partial
 
 # PARAMETERS
 JAXA_FTP = 'ftp.gportal.jaxa.jp'
@@ -30,7 +31,10 @@ CONVERSION_SCRIPT = './run_converter.sh'
 JAXA_DT_FORMAT = "%Y%m%d%H%M"
 
 # Local Data directory
-DATA_DIR = 'data/2019'
+DATA_DIR = 'data'
+
+# Archive datetime format for final directories etc.
+ARCHIVE_DT_FORMAT = "%Y%m%dT%H%MZ"
 
 # File type extensions
 HDF_EXT = '.h5'
@@ -71,6 +75,18 @@ def get_file(path_str, output_dir=DATA_DIR,
                     raise e
 
     return filepath
+
+
+def get_files(ftp_file_paths, output_dir, n_threads=FTP_MAX_CONNECTIONS):
+    with Pool(n_threads) as p:
+        func = partial(get_file, output_dir=output_dir)
+
+        file_paths = p.map(func, ftp_file_paths)
+
+        p.close()
+        p.join()
+
+    return file_paths
 
 
 def get_list_of_files(ftp, path_str):
@@ -286,21 +302,12 @@ if __name__ == "__main__":
         process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
 
     if True:
-        from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes
+        from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes, split_hdf_at_datetime
 
-        # For a time range
-        #   determine the bins
-        #   grab the data for those bins
-        #       split edge files as required
+        start_dt = datetime.fromisoformat("2019-12-30T00:00+00:00")
+        end_dt = datetime.fromisoformat("2020-01-01T12:00+00:00")
 
-        start_dt = datetime.fromisoformat("2019-12-01T00:00+00:00")
-        end_dt = datetime.fromisoformat("2019-12-03T00:00+00:00")
-
-        # DTs to test year/month boundary on first bin
-        #start_dt = datetime.fromisoformat("2019-12-31T23:00+00:00")
-        #end_dt = datetime.fromisoformat("2020-12-03T00:00+00:00")
-
-        bins = get_bins(start_dt, end_dt)#, bin_size_sec=60*60*24*356.25*4.80)
+        bins = get_bins(start_dt, end_dt)
 
         # Temporary download directory
         temp_dir = join(DATA_DIR, "temp")
@@ -314,27 +321,87 @@ if __name__ == "__main__":
             print("Start:", b['start'])
             print("End:  ", b['end'])
 
-            # TODO: Finish the implementation.
+            # Generate the regexes for the bin
+            year_regex, month_regex, file_regex = \
+                build_regexs_for_ftp_from_datetimes(b['start'], b['end'],
+                                                    include_hour_before=last_file_of_prev_bin is None)
+
+            # Grab the files from the FTP server
+            with FTP(JAXA_FTP) as ftp_connection:
+                ret = ftp_connection.login(user=FTP_USERNAME, passwd=FTP_PASSWORD)
+
+                # Get the list of files that match the regexes.
+                files = jaxa_get_full_list_of_filepaths(ftp_connection, FTP_DIR,
+                                                        year_regex=year_regex, month_regex=month_regex,
+                                                        filename_regex=file_regex)
+
+            # Download each of the files
+            local_file_paths = get_files(files, temp_dir)
+            local_file_paths.sort()
 
             if not last_file_of_prev_bin:
-                # Go get the last file of the previous bin
-                pass
+                # Get the last file of the previous bin
+                last_file_of_prev_bin = local_file_paths[0]
 
-                # Split the file along the bin's start datetime
+                def tidy_first_bin_edge(original_filepath, bin_edge_dt):
+                    # Name the new file with the starting datetime
+                    dt_str = get_date_string_from_filename(basename(original_filepath))
+                    new_file = original_filepath.replace(dt_str, bin_edge_dt.strftime(JAXA_DT_FORMAT))
 
-            # Get the files within the bin
-            year_regex, month_regex, file_regex = \
-                build_regexs_for_ftp_from_datetimes(b['start'], b['end'])
+                    # Split the file along the bin's start datetime
+                    split_hdf_at_datetime(original_filepath, bin_edge_dt, output_filepaths=(None, new_file))
 
-            print(year_regex)
-            print(month_regex)
-            print(file_regex)
+                    return new_file
+
+                try:
+                    new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
+                except ValueError:
+                    # Sometimes there are two files in the hour before the start of the bin.
+                    # This will generate a ValueError
+                    # Delete the too-early file and remove it from the local file list
+                    delete_file(last_file_of_prev_bin)
+                    local_file_paths = local_file_paths[1:]
+
+                    # Reassign the last_file_of_prev_bin
+                    last_file_of_prev_bin = local_file_paths[0]
+
+                    new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
+
+                # Delete the original file
+                delete_file(last_file_of_prev_bin)
+
+                # Update the file list
+                local_file_paths[0] = new_filename
+            else:
+                local_file_paths = [last_file_of_prev_bin] + local_file_paths
 
             # Split the last file across the bin end datetime
+            last_file = local_file_paths[-1]
+            date_str = get_date_string_from_filename(basename(last_file))
+            new_filename_before = last_file
+            new_filename_after = last_file.replace(date_str, b['end'].strftime(JAXA_DT_FORMAT))
+            split_hdf_at_datetime(last_file, b['end'],
+                                  output_filepaths=(new_filename_before, new_filename_after))
+
+            # Update the prev_bin file as it will be used in the next iteration
+            # Note that it's not in the local_file_paths list.
+            last_file_of_prev_bin = new_filename_after
+
+            # Archive directory
+            archive_dir = join(DATA_DIR,
+                               str(b['mid'].year), str(b['mid'].month),
+                               b['mid'].strftime(ARCHIVE_DT_FORMAT))
 
             # Organise the files into the archive
+            # Bins are organised about the middle of the bin
+            makedirs(archive_dir, exist_ok=True)
+            for f in local_file_paths:
+                dest = join(archive_dir, basename(f))
+                if exists(dest):
+                    delete_file(dest)
 
-            break
+                move_file(f, dest)
 
-
-
+        # Clean up the temp directory
+        delete_file(last_file_of_prev_bin)
+        rmdir(temp_dir)
