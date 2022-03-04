@@ -65,6 +65,52 @@ def align_bin(dt, offset_sec=3*60*60, bin_size_sec=6*60*60, edge="start"):
     return dt
 
 
+def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_'):
+    # Builds regexes to match the file structure of the JAXA G-Portal FTP server
+    # Structure is something like YYYY/MM/GW1AM2_YYYYMMDDhhmm_xxxx_L1SGBTBR_2220220.h5
+
+    # Filenames look like - GW1AM2_201912010040_180A_L1SGBTBR_2220220.h5
+    # ^ static, _ dynamic   ^^^^^^^____________^____^^^^^^^^^^^^^^^^^^^^
+
+    # Years dir regex
+    year_regex = "|".join([str(x) for x in
+                           range(start_dt.year,
+                                 max(start_dt.year + 1, end_dt.year + 1))])
+
+    # Months dir regex
+    months = []
+    month = start_dt.month
+    while True:
+        months.append(month)
+
+        if month == end_dt.month:
+            break
+
+        # Increment month and deal with months wrapping at the end of the year
+        month = max(1, (month + 1) % 13)
+
+    # Convert months to a set to remove duplicates
+    month_regex = "|".join([str(x) for x in set(months)])
+
+    # Files regex - for now assume that datetimes are aligned to the hour
+    dt = start_dt
+    file_regex = []
+    while True:
+        # Escape { with {{, escape \ with \\
+        file_regex.append("{:4}{:02d}{:02d}{:02d}\\d{{2}}".format(dt.year, dt.month, dt.day, dt.hour))
+
+        dt += timedelta(hours=1)
+
+        # We don't want files whose names match the end dt.
+        # E.g. if the end id 2019-01-01 00:00 we don't want files that match 2019010100xx
+        if dt >= end_dt:
+            break
+
+    file_regex = prefix + '|'.join(file_regex)
+
+    return year_regex, month_regex, file_regex
+
+
 # HDF Utils
 def _get_split_index(hdf_filepath, split_point_dt):
     with hdfFile(hdf_filepath) as hdf:

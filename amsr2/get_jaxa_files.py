@@ -95,7 +95,7 @@ def get_list_of_dirs(ftp, path_str):
 
 
 def jaxa_get_full_list_of_filepaths(ftp, starting_dir_path,
-                                    year_regex=None, month_regex=None):
+                                    year_regex=None, month_regex=None, filename_regex=None):
     # Get a list of years, sort them, and filter on the regex if supplied.
     list_of_year_dirs = get_list_of_dirs(ftp, starting_dir_path)
     list_of_year_dirs.sort()
@@ -120,6 +120,10 @@ def jaxa_get_full_list_of_filepaths(ftp, starting_dir_path,
 
             filenames = get_list_of_files(ftp, path2)
             filenames.sort()
+
+            if filename_regex:
+                filenames = \
+                    [f for f in filenames if search(filename_regex, f)]
 
             for filename in filenames:
                 # Don't use os.path.join here as we're talking to FTP
@@ -281,72 +285,8 @@ if __name__ == "__main__":
 
         process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
 
-    if False:
-        from glob import glob
-        from h5py import File as hdfFile
-        from math import floor, ceil
-
-        file_list = glob(join(DATA_DIR, '*.h5'))
-        file_list.sort()
-
-        # datetime makes presumptions about timezones, specify timezone to avoid
-        # problems and confusion
-        first_dt = datetime.strptime(get_date_string_from_filename(file_list[0]) + "+0000",
-                                     JAXA_DT_FORMAT + "%z")
-        last_dt = datetime.strptime(get_date_string_from_filename(file_list[-1]) + "+0000",
-                                    JAXA_DT_FORMAT + "%z")
-
-        # Bins are 6 hours long
-        bin_size_sec = 60 * 60 * 6
-        # Bins are centred on 00:00, 06:00, 12:00, 18:00
-        # Thus an offset of 3 hours compared to midnight on Jan 1 1970
-        offset = bin_size_sec / 2
-
-        print("first")
-        print('\t', first_dt)
-        print('\t', first_dt.timestamp())
-
-        from amsr2_util import align_bin
-
-        start_of_start_bin = align_bin(first_dt, offset, bin_size_sec, edge="start")
-        end_of_end_bin = align_bin(last_dt, offset, bin_size_sec, edge="end")
-
-        n_bins = int((end_of_end_bin - start_of_start_bin).total_seconds() / bin_size_sec)
-
-        bins = []
-        for i in range(n_bins):
-            bin_dict = {
-                "start": start_of_start_bin + i * timedelta(seconds=bin_size_sec),
-                "end": start_of_start_bin + (i+1) * timedelta(seconds=bin_size_sec),
-            }
-
-            bins.append(bin_dict)
-
-        file_dict_list = []
-        for f in file_list:
-            print(f)
-
-            try:
-                with hdfFile(f) as hdf:
-                    # Attribute is stored as a one element numpy array for some reason.
-                    # Datetime string has a Z on the end which doesn't match the ISO format replace it with +00:00
-                    iso_start_dt_str = hdf.attrs['ObservationStartDateTime'][0].replace('Z', '+00:00')
-                    iso_end_dt_str = hdf.attrs['ObservationEndDateTime'][0].replace('Z', '+00:00')
-
-                    start_datetime = datetime.fromisoformat(iso_start_dt_str)
-                    end_datetime = datetime.fromisoformat(iso_end_dt_str)
-
-                    print('\t', start_datetime)
-                    print('\t', end_datetime)
-
-                    file_dict = {'filepath': f, 'start_dt': start_datetime, 'end_dt': end_datetime}
-
-                    file_dict_list.append(file_dict)
-            except OSError:
-                delete_file(f)
-
     if True:
-        from amsr2_util import get_bins
+        from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes
 
         # For a time range
         #   determine the bins
@@ -356,18 +296,45 @@ if __name__ == "__main__":
         start_dt = datetime.fromisoformat("2019-12-01T00:00+00:00")
         end_dt = datetime.fromisoformat("2019-12-03T00:00+00:00")
 
-        print("start_dt:", start_dt)
-        print("end_dt:", end_dt)
+        # DTs to test year/month boundary on first bin
+        #start_dt = datetime.fromisoformat("2019-12-31T23:00+00:00")
+        #end_dt = datetime.fromisoformat("2020-12-03T00:00+00:00")
 
-        bins = get_bins(start_dt, end_dt)
+        bins = get_bins(start_dt, end_dt)#, bin_size_sec=60*60*24*356.25*4.80)
 
+        # Temporary download directory
+        temp_dir = join(DATA_DIR, "temp")
+
+        # The last file in the previous bin should overhang the start of the next bin
+        last_file_of_prev_bin = None
         for b in bins:
             # For each bin grab the files from JAXA to fill the bin.
             # This likely includes a file whose name/timestamp is before
             # the bin window.
-            print(b['mid'])
+            print("Start:", b['start'])
+            print("End:  ", b['end'])
 
             # TODO: Finish the implementation.
+
+            if not last_file_of_prev_bin:
+                # Go get the last file of the previous bin
+                pass
+
+                # Split the file along the bin's start datetime
+
+            # Get the files within the bin
+            year_regex, month_regex, file_regex = \
+                build_regexs_for_ftp_from_datetimes(b['start'], b['end'])
+
+            print(year_regex)
+            print(month_regex)
+            print(file_regex)
+
+            # Split the last file across the bin end datetime
+
+            # Organise the files into the archive
+
+            break
 
 
 
