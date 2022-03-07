@@ -91,22 +91,19 @@ class SondeObservation:
                                             the following line'):
         #ID YEAR MONTH DAY HOUR HHmm NUM_LEVELS P_SRC NP_SRC LAT LON
         """
-        
-        # TODO: update this to not split, data format defines columns not 
-        #       whitespace separated strings
-        x = line.split()
+        self.station_blk = int(line[7:9])
+        self.station_number = int(line[9:12])
 
-        self.station_blk = int(x[0][7:9])
-        self.station_number = int(x[0][9:12])
+        self.date_time = datetime(year=int(line[13:17]),
+                                  month=int(line[18:20]),
+                                  day=int(line[21:23]),
+                                  hour=int(line[24:26]))
 
-        self.date_time = datetime(year=int(x[1]),
-                                  month=int(x[2]),
-                                  day=int(x[3]),
-                                  hour=int(x[4]))
+        self.n_levs = int(line[32:36])
 
-        self.n_levs = int(x[6])
-        self.lat = 0.0001 * int(x[8])
-        self.lon = 0.0001 * int(x[9])
+        # TODO: Why 0.0001 (divide by 10,000)?
+        self.lat = 0.0001 * int(line[55:62])
+        self.lon = 0.0001 * int(line[63:71])
 
     def _read_levs(self, line, lev_index):
         """
