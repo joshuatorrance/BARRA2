@@ -125,14 +125,14 @@ class SondeObservation:
         print "#####################"
         print line
 
-        p = int(line[9:15])
-        self.pressure[lev_index] = p if p!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
+        if_not_missing = lambda x: x if x!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
+
+        self.pressure[lev_index] = if_not_missing(int(line[9:15]))
 
 
         # geometric height to geopotential height
         # TODO: Docs say this is already geopotential height
-        ht = int(line[16:21])
-        self.ht[lev_index = ht / gravity if ht!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
+        self.ht[lev_index] = if_not_missing(int(line[16:21]) / gravity)
 
         # 10C, convert to K
         if self.air_temp[lev_index] != ecc.CODES_MISSING_DOUBLE:
