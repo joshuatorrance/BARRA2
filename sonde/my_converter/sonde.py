@@ -4,6 +4,9 @@
 # ecCodes3 may not be installed properly on NCI. Retreating to python2, attempting
 # to keep it version agnostic.
 #
+# Documentation on the data format can be found at:
+#   /g/data/hd50/barra2/data/obs/igra/doc/igra2-data-format.txt
+#
 # Author: Joshua Torrance
 
 # IMPORTS
@@ -78,16 +81,19 @@ class SondeObservation:
 
     def _read_first_line(self, line):
         """
-        Process the first line of the block. It contains header-like info.
+        Process the first line of the block. It contains header-like info for
+        a particular sounding.
 
         Example first line:
         #ASM00094120 1943 05 30 18 9999    7 ncdc6310          -124239  1308925
+        
+        According to the docs it should be (character columns don't match in
+                                            the following line'):
+        #ID YEAR MONTH DAY HOUR HHmm NUM_LEVELS P_SRC NP_SRC LAT LON
         """
-        # WRITE(udatafile, '('#',a11,i4,3i2.2,i4.4,i4,a9,i7,i8,i5,a2,a5,a20,a1,6a2)') &
-        # cStnid, iCurYear, iCurMon, iCurDay, iCurHour, iRTime, iNewNLvls, cClouds, &
-        # iLat, iLon, iElev, cObsType, cSondeType, cSerialNum, cSerialNumType, &
-        # cCorP, cCorZ, cCorT, cCorH, cCorD, cCorW
-
+        
+        # TODO: update this to not split, data format defines columns not 
+        #       whitespace separated strings
         x = line.split()
 
         self.station_blk = int(x[0][7:9])
@@ -104,15 +110,14 @@ class SondeObservation:
 
     def _read_levs(self, line, lev_index):
         """
-        process line for each lev
+        Process a line for each level
+        
+        Example level reading:
+        21 -9999 101500A   10   256A  810 -9999   110    40
+        LevelType1|LevelType2 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
         """
-
-        # WRITE(udatafile,'(a2,i5,i6,6i5)') &
-        # cLvlTypes(i), iETimes(i), iPressures(i), iHeights(i), iTemps(i), &
-        # iRelHums(i), iDewDeps(i), iWDirs(i), iWSpeeds(i)
-
-        # 21 -9999 101000A   27   229A-9999 -9999 -9999 -9999
-
+        # TODO: update this to not split, data format defines columsn not
+        #       whitespace separated strings
         # get rid of the "A", where from '(a2,i5,i6,6i5)' ???
         line = line.replace("A", " ")
         x = line.split()
