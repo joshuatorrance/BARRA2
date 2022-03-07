@@ -111,7 +111,7 @@ class SondeObservation:
         
         Example level reading:
         21 -9999 101500A   10   256A  810 -9999   110    40
-        LevelType1|LevelType2 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
+        LevelType1 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
         """
         # TODO: update this to not split, data format defines columsn not
         #       whitespace separated strings
@@ -122,11 +122,17 @@ class SondeObservation:
             if int(x[i]) == SondeTXT.MISSING:
                 x[i] = ecc.CODES_MISSING_DOUBLE
 
-        self.pressure[lev_index] = int(x[2])
+        print "#####################"
+        print line
+
+        p = int(line[9:15])
+        self.pressure[lev_index] = p if p!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
+
 
         # geometric height to geopotential height
-        if self.ht[lev_index] != ecc.CODES_MISSING_DOUBLE:
-            self.ht[lev_index] = int(x[3]) / gravity
+        # TODO: Docs say this is already geopotential height
+        ht = int(line[16:21])
+        self.ht[lev_index = ht / gravity if ht!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
 
         # 10C, convert to K
         if self.air_temp[lev_index] != ecc.CODES_MISSING_DOUBLE:
@@ -137,8 +143,16 @@ class SondeObservation:
         self.wind_direction[lev_index] = int(x[7])
         self.wind_speed[lev_index] = int(x[8])
 
-        # x[0] is the lev type
-        if x[0] == "21":  # sfc
+        # line[0:2] is the level type
+        # First digit : Major level type indicator
+        #               1 - Standard pressure level,
+        #               2 - Other pressure level
+        #               3 - Non-pressure level
+        # Second digit: Minor level type indicator
+        #               1 - Surface
+        #               2 - Tropopause
+        #               3 - Other
+        if line[0:2] == "21":
             self.station_height = self.ht[lev_index]
 
 
