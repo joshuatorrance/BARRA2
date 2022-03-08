@@ -8,7 +8,7 @@ from shutil import copyfile
 from datetime import datetime, timedelta, timezone
 from os import remove as delete_file
 from os.path import splitext, exists
-from numpy import array
+from numpy import array, searchsorted
 from math import floor, ceil
 
 
@@ -121,6 +121,7 @@ def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_', incl
 # HDF Utils
 def _get_split_index(hdf_filepath, split_point_dt,
                      margin_td=timedelta(seconds=3)):
+    print(hdf_filepath)
     with hdfFile(hdf_filepath) as hdf:
         # Attribute is stored as a one element numpy array for some reason.
         # Datetime string has a Z on the end which doesn't match the
@@ -141,7 +142,7 @@ def _get_split_index(hdf_filepath, split_point_dt,
             timestamps = (scan_time - scan_time[0]) + start_dt.timestamp()
  
             # Determine the index of the first element after split_point_dt
-            split_index = (timestamps > split_point_dt.timestamp()).argmax()
+            split_index = searchsorted(timestamps, split_point_dt.timestamp())
 
             return split_index
         else:
