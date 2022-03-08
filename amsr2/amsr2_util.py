@@ -120,7 +120,7 @@ def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_', incl
 
 # HDF Utils
 def _get_split_index(hdf_filepath, split_point_dt,
-                     margin_td=timedelta(seconds=3, hours=2)):
+                     margin_td=timedelta(seconds=3)):
     with hdfFile(hdf_filepath) as hdf:
         # Attribute is stored as a one element numpy array for some reason.
         # Datetime string has a Z on the end which doesn't match the
