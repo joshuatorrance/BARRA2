@@ -119,7 +119,8 @@ def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_', incl
 
 
 # HDF Utils
-def _get_split_index(hdf_filepath, split_point_dt):
+def _get_split_index(hdf_filepath, split_point_dt,
+                     margin_td=timedelta(seconds=3)):
     with hdfFile(hdf_filepath) as hdf:
         # Attribute is stored as a one element numpy array for some reason.
         # Datetime string has a Z on the end which doesn't match the
@@ -130,7 +131,11 @@ def _get_split_index(hdf_filepath, split_point_dt):
                                         .replace('Z', '+00:00'))
 
         # Check that the split is between the start and end.
-        if start_dt < split_point_dt < end_dt:
+        # margin give the number of seconds of grace allowed between the
+        #  split point and the start/end datetimes. There's at least one bin
+        #  where the end_dt is less than 2 seconds from the split spoint.
+        if (start_dt - split_point_dt) < margin_td and \
+            (split_point_dt - end_dt) < margin_td:
             # Convert scantime to timestamps (i.e. seconds since 1970-01-01T00:00 UTC)
             scan_time = hdf['Scan Time']
             timestamps = (scan_time - scan_time[0]) + start_dt.timestamp()
