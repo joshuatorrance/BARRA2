@@ -116,6 +116,7 @@ class SondeObservation:
         self.n_levels = int(line[32:36])
 
         # TODO: Why 0.0001 (divide by 10,000)?
+        # "is the latitude/longitute of the station (in decimal degrees)"
         self.lat = 0.0001 * int(line[55:62])
         self.lon = 0.0001 * int(line[63:71])
 
@@ -277,10 +278,10 @@ class SondeBUFR:
         output sonde data in BUFR for barra2
     """
 
-    TEMP_SEQ = (1011, 1001, 1002, 4001, 4002, 4003, 4004, 4005, 5001,
-                6001, 33003, 7001, 107000, 31002, 8001, 7004, 10009,
-                12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
-                11062, 55017)
+    TEMPLATE_SEQ = (1011, 1001, 1002, 4001, 4002, 4003, 4004, 4005, 5001,
+                    6001, 33003, 7001, 107000, 31002, 8001, 7004, 10009,
+                    12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
+                    11062, 55017)
 
     def __init__(self, template_path, n_levels):
         self.pressure = [""] * n_levels
@@ -352,16 +353,18 @@ class SondeBUFR:
 
         ecc.codes_set(self.output_bufr,
                       'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levels)
-        ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
+        ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMPLATE_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
         ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
         ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
+
         ecc.codes_set(self.output_bufr, 'year', sonde_txt_obs.date_time.year)
         ecc.codes_set(self.output_bufr, 'month', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'day', sonde_txt_obs.date_time.day)
         ecc.codes_set(self.output_bufr, 'hour', sonde_txt_obs.date_time.hour)
         ecc.codes_set(self.output_bufr, 'minute', 0)
+
         ecc.codes_set(self.output_bufr, 'latitude', sonde_txt_obs.lat)
         ecc.codes_set(self.output_bufr, 'longitude', sonde_txt_obs.lon)
 
