@@ -83,7 +83,7 @@ def main():
         for obs in sonde_txt.observations:
             sonde_bufr = SondeBUFR(path_template_bufr, obs.n_levels)
 
-            sonde_bufr.write_temp(file_bufr, obs, sonde_nc)
+            sonde_bufr.write_bufr_message(file_bufr, obs, sonde_nc)
 
             sonde_bufr.close()
 

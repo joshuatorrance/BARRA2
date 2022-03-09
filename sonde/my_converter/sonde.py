@@ -317,7 +317,7 @@ class SondeBUFR:
                                                                  self._year_month_day_index]))
                     break
 
-    def write_temp(self, file_bufr, sonde_txt_obs, sonde_nc):
+    def write_bufr_message(self, file_bufr, sonde_txt_obs, sonde_nc):
         """
         write out sonde for barra2
         """
