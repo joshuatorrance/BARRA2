@@ -38,12 +38,12 @@ class SondeObservation:
 
         self.station_height = None
 
-        # Levs (levels? measurements at a given level/altitude/pressure?)
-        self.n_levs = None
+        # Levels (measurements at a given level/altitude/pressure)
+        self.n_levels = None
 
         # Lev arrays
         self.pressure = None
-        self.ht = None
+        self.height = None
         self.air_temp = None
         # Not used
         # self.relative_humidity = None
@@ -59,21 +59,21 @@ class SondeObservation:
         else:
             return False
 
-        # Now that we know the number of levs we can build the arrays
-        self.pressure = np.zeros(self.n_levs)
-        self.ht = np.zeros(self.n_levs)
-        self.air_temp = np.zeros(self.n_levs)
-        #   self.relative_humidity = np.zeros(self.n_levs)    # not used
-        self.dew_point_temp = np.zeros(self.n_levs)
-        self.wind_direction = np.zeros(self.n_levs)
-        self.wind_speed = np.zeros(self.n_levs)
+        # Now that we know the number of levels we can build the arrays
+        self.pressure = np.zeros(self.n_levels)
+        self.height = np.zeros(self.n_levels)
+        self.air_temp = np.zeros(self.n_levels)
+        #   self.relative_humidity = np.zeros(self.n_levels)    # not used
+        self.dew_point_temp = np.zeros(self.n_levels)
+        self.wind_direction = np.zeros(self.n_levels)
+        self.wind_speed = np.zeros(self.n_levels)
 
-        # Read the lines for each lev
-        for i in range(self.n_levs):
+        # Read the lines for each level
+        for i in range(self.n_levels):
             line = txt_file.readline()
 
             if line:
-                self._read_levs(line, i)
+                self._read_level(line, i)
             else:
                 raise IOError("Reached end of file before end of observation.")
 
@@ -99,61 +99,61 @@ class SondeObservation:
                                   day=int(line[21:23]),
                                   hour=int(line[24:26]))
 
-        self.n_levs = int(line[32:36])
+        self.n_levels = int(line[32:36])
 
         # TODO: Why 0.0001 (divide by 10,000)?
         self.lat = 0.0001 * int(line[55:62])
         self.lon = 0.0001 * int(line[63:71])
 
-    def _read_levs(self, line, lev_index):
+    def _read_level(self, line, level_index):
         """
         Process a line for each level
         
         Example level reading:
         21 -9999 101500A   10   256A  810 -9999   110    40
 
-        LevelType1 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
+        LevelType ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
         """
         # Convenience vars
         missing_txt = SondeTXT.MISSING
         missing_ecc = ecc.CODES_MISSING_DOUBLE
 
         p = int(line[9:15])
-        self.pressure[lev_index] = p if p != missing_txt else missing_ecc
+        self.pressure[level_index] = p if p != missing_txt else missing_ecc
 
         # geometric height to geopotential height
         # TODO: Docs say this is already geopotential height...
         ht = int(line[16:21])
-        self.ht[lev_index] = ht / gravity if ht != missing_txt else missing_ecc
+        self.height[level_index] = ht / gravity if ht != missing_txt else missing_ecc
 
         # 10C, convert to K
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
         air_temp = int(line[22:27])
-        self.air_temp[lev_index] = 0.1 * int(line[22:27]) + zero_Celsius \
+        self.air_temp[level_index] = 0.1 * int(line[22:27]) + zero_Celsius \
             if air_temp != missing_txt else missing_ecc
 
         # Relative humidity
         #  "percent to tenths, e.g., 11 = 1.1%"
-        # self.relative_humidity[lev_index] = 0.1 * int(line[28:33])
+        # self.relative_humidity[level_index] = 0.1 * int(line[28:33])
 
         # Dew point depression
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         # TODO: Is dew point depression the same as dew point temperature?
         dp_temp = int(line[34:39])
-        self.dew_point_temp[lev_index] = 0.1 * dp_temp \
+        self.dew_point_temp[level_index] = 0.1 * dp_temp \
             if dp_temp != missing_txt else missing_ecc
 
         # Wind direction
         #  "degrees from north, 90 = east"
         wind_dir = int(line[40:45])
-        self.wind_direction[lev_index] = wind_dir \
+        self.wind_direction[level_index] = wind_dir \
             if wind_dir != missing_txt else missing_ecc
 
         # Wind speed
         #  "meters per second to tenths, e.g., 11 = 1.1 ms/1"
         wind_speed = int(line[46:51])
-        self.wind_speed[lev_index] = 0.1 * wind_speed \
+        self.wind_speed[level_index] = 0.1 * wind_speed \
             if wind_speed != missing_txt else missing_ecc
 
         # line[0:2] is the level type
@@ -168,7 +168,7 @@ class SondeObservation:
         # If this level has type "21" then it's at the surface and we
         #  can set the station height
         if line[0:2] == "21":
-            self.station_height = self.ht[lev_index]
+            self.station_height = self.height[level_index]
 
 
 class SondeTXT:
@@ -180,7 +180,7 @@ class SondeTXT:
     MISSING = -9999
 
     def __init__(self):
-        self.levs = []
+        self.observations = []
 
     def read(self, txt_file):
         """
@@ -190,14 +190,14 @@ class SondeTXT:
         """
 
         while True:
-            lev = SondeObservation()
+            obs = SondeObservation()
 
-            ret = lev.read_from_txt(txt_file)
+            ret = obs.read_from_txt(txt_file)
 
             if ret:
-                self.levs.append(lev)
+                self.observations.append(obs)
             else:
-                # lev.read_from_txt returns false when it sees the end of file
+                # obs.read_from_txt returns false when it sees the end of file
                 break
 
 
@@ -209,7 +209,7 @@ class SondeNC:
 
     def __init__(self):
         self.n_days = 0
-        self.n_levs = 0
+        self.n_levels = 0
         self.n_hours = 0
 
         self.year_month_day = None
@@ -230,7 +230,7 @@ class SondeNC:
             d_temperature = nc_in.variables['temperatures']
             d_bias = nc_in.variables['richbias']
 
-            self.n_hours, self.n_levs, self.n_days = d_temperature.shape
+            self.n_hours, self.n_levels, self.n_days = d_temperature.shape
 
             t_units = nc_in.variables['datum'].units
             t_calendar_type = nc_in.variables['datum'].calendar
@@ -277,14 +277,13 @@ class SondeBUFR:
             self.wind_speed[i] = '#' + str(i + 1) + '#windSpeed'
 
         with open(template_path, 'r') as f_template:
-            # I think f_template is a template bufr file?
             self.b_temp = ecc.codes_bufr_new_from_file(f_template)
 
         self._year_month_day_index = 0
 
         ecc.codes_set(self.b_temp, 'unpack', 1)
 
-        # fixed header values, do this once
+        # Fixed header values, do this once
         ecc.codes_set(self.b_temp, 'edition', 3)
         ecc.codes_set(self.b_temp, 'masterTableNumber', 0)
         ecc.codes_set(self.b_temp, 'bufrHeaderCentre', 1)
@@ -301,15 +300,19 @@ class SondeBUFR:
         """
         replace temp with bias-corrected temp from nc
         """
-        for txt_lev_index in range(sonde_txt.n_levs):
-            for nc_lev_index in range(sonde_nc.n_levs):
-                if sonde_nc.pressure[nc_lev_index] == sonde_txt.pressure[txt_lev_index]:
-                    if sonde_nc.air_temp[hour_index, nc_lev_index, self._year_month_day_index] != sonde_nc.MISSING \
-                            and sonde_nc.bias[hour_index, nc_lev_index, self._year_month_day_index] != sonde_nc.MISSING:
+        for txt_level_index in range(sonde_txt.n_levels):
+            for nc_level_index in range(sonde_nc.n_levels):
+                if sonde_nc.pressure[nc_level_index] == sonde_txt.pressure[txt_level_index]:
+                    if sonde_nc.air_temp[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING \
+                            and sonde_nc.bias[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING:
                         ecc.codes_set(self.b_temp,
-                                      self.air_temp[txt_lev_index],
-                                      np.float64(sonde_nc.air_temp[hour_index, nc_lev_index, self._year_month_day_index]
-                                                 + sonde_nc.bias[hour_index, nc_lev_index, self._year_month_day_index]))
+                                      self.air_temp[txt_level_index],
+                                      np.float64(sonde_nc.air_temp[hour_index,
+                                                                   nc_level_index,
+                                                                   self._year_month_day_index]
+                                                 + sonde_nc.bias[hour_index,
+                                                                 nc_level_index,
+                                                                 self._year_month_day_index]))
                     break
 
     def write_temp(self, file_bufr, sonde_txt_obs, sonde_nc):
@@ -327,7 +330,7 @@ class SondeBUFR:
         ecc.codes_set(self.b_temp, 'typicalHour', sonde_txt_obs.date_time.hour)
 
         ecc.codes_set(self.b_temp,
-                      'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levs)
+                      'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levels)
         ecc.codes_set_array(self.b_temp, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
@@ -342,9 +345,9 @@ class SondeBUFR:
         ecc.codes_set(self.b_temp, 'longitude', sonde_txt_obs.lon)
         ecc.codes_set(self.b_temp, 'heightOfStation', sonde_txt_obs.station_height)
 
-        for i in range(sonde_txt_obs.n_levs):
+        for i in range(sonde_txt_obs.n_levels):
             ecc.codes_set(self.b_temp, self.pressure[i], sonde_txt_obs.pressure[i])
-            ecc.codes_set(self.b_temp, self.ht[i], sonde_txt_obs.ht[i])
+            ecc.codes_set(self.b_temp, self.ht[i], sonde_txt_obs.height[i])
             ecc.codes_set(self.b_temp, self.air_temp[i], sonde_txt_obs.air_temp[i])
             ecc.codes_set(self.b_temp, self.dew_point_temp[i], sonde_txt_obs.dew_point_temp[i])
             ecc.codes_set(self.b_temp, self.wind_direction[i], sonde_txt_obs.wind_direction[i])
