@@ -11,6 +11,7 @@ N_THREADS=10
 thread_count=0
 
 # Filter with characters about the *
+# TODO: add some more checking on the loops to ensure matches are actually dirs
 for year_dir in $HEAD_DIR/*8; do
     echo Year: `basename $year_dir`
 
