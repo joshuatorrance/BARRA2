@@ -230,8 +230,11 @@ class SondeNC:
             d_temperature = nc_in.variables['temperatures']
             d_bias = nc_in.variables['richbias']
 
+            # Dimensions are hour x levels x date
+            # Sondes are launched at the same time each day
             self.n_hours, self.n_levels, self.n_days = d_temperature.shape
 
+            # Convert d_days_since_1900 to an array of datetimes
             t_units = nc_in.variables['datum'].units
             t_calendar_type = nc_in.variables['datum'].calendar
             t_value = netCDF4.num2date(d_days_since_1900, units=t_units, calendar=t_calendar_type)
