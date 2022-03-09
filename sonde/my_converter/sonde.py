@@ -27,9 +27,9 @@ class SondeObservation:
     """
 
     def __init__(self):
-        # blk?
-        self.station_blk = None
-        self.station_number = None
+        # WMO Station IDs
+        self.wmo_station_block_number = None
+        self.wmo_station_number = None
 
         self.date_time = None
 
@@ -63,7 +63,7 @@ class SondeObservation:
         self.pressure = np.zeros(self.n_levels)
         self.height = np.zeros(self.n_levels)
         self.air_temp = np.zeros(self.n_levels)
-        #   self.relative_humidity = np.zeros(self.n_levels)    # not used
+        # self.relative_humidity = np.zeros(self.n_levels)    # not used
         self.dew_point_temp = np.zeros(self.n_levels)
         self.wind_direction = np.zeros(self.n_levels)
         self.wind_speed = np.zeros(self.n_levels)
@@ -91,8 +91,21 @@ class SondeObservation:
                                             the following line):
         #ID YEAR MONTH DAY HOUR HHmm NUM_LEVELS P_SRC NP_SRC LAT LON
         """
-        self.station_blk = int(line[7:9])
-        self.station_number = int(line[9:12])
+        # Station ID can be matched in igra2-stations.txt
+        # "is the station identification code.  Note that the first two
+        # characters denote the FIPS  country code, the third character is a
+        # network code that identifies the station numbering system used, and
+        # the remaining eight characters contain the actual station ID"
+        station_id = line[1:12]
+        if station_id[2]=='M':
+            #  M = WMO identification number (last five characters of the IGRA 2 ID)
+            self.wmo_station_block_number = int(line[7:9])
+            self.wmo_station_block_number = int(station_id[6:8])
+            self.wmo_station_number = int(line[9:12])
+            self.wmo_station_number = int(station_id[8:11])
+        else:
+            raise ValueError("Unhandled station ID type, {}, for station ID: {}"
+                             .format(station_id[2], station_id))
 
         self.date_time = datetime(year=int(line[13:17]),
                                   month=int(line[18:20]),
@@ -341,8 +354,8 @@ class SondeBUFR:
         ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
-        ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.station_blk)
-        ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.station_number)
+        ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
+        ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
         ecc.codes_set(self.output_bufr, 'year', sonde_txt_obs.date_time.year)
         ecc.codes_set(self.output_bufr, 'month', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'day', sonde_txt_obs.date_time.day)
