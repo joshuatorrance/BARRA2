@@ -165,9 +165,9 @@ class SondeObservation:
         #               1 - Surface
         #               2 - Tropopause
         #               3 - Other
-        # If this level has type "21" then it's at the surface and we
+        # If this level has type "x1" then it's at the surface and we
         #  can set the station height
-        if line[0:2] == "21":
+        if line[1:2] == "1":
             self.station_height = self.height[level_index]
 
 
@@ -346,7 +346,9 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'minute', 0)
         ecc.codes_set(self.output_bufr, 'latitude', sonde_txt_obs.lat)
         ecc.codes_set(self.output_bufr, 'longitude', sonde_txt_obs.lon)
-        ecc.codes_set(self.output_bufr, 'heightOfStation', sonde_txt_obs.station_height)
+
+        if sonde_txt_obs.station_height:
+            ecc.codes_set(self.output_bufr, 'heightOfStation', sonde_txt_obs.station_height)
 
         for i in range(sonde_txt_obs.n_levels):
             ecc.codes_set(self.output_bufr, self.pressure[i], sonde_txt_obs.pressure[i])
