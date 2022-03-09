@@ -119,19 +119,19 @@ class SondeObservation:
         missing_ecc = ecc.CODES_MISSING_DOUBLE
 
         p = int(line[9:15])
-        self.pressure[level_index] = p if p != missing_txt else missing_ecc
+        self.pressure[level_index] = p if p not in missing_txt else missing_ecc
 
         # geometric height to geopotential height
         # TODO: Docs say this is already geopotential height...
         ht = int(line[16:21])
-        self.height[level_index] = ht / gravity if ht != missing_txt else missing_ecc
+        self.height[level_index] = ht / gravity if ht not in missing_txt else missing_ecc
 
         # 10C, convert to K
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
         air_temp = int(line[22:27])
         self.air_temp[level_index] = 0.1 * int(line[22:27]) + zero_Celsius \
-            if air_temp != missing_txt else missing_ecc
+            if air_temp not in missing_txt else missing_ecc
 
         # Relative humidity
         #  "percent to tenths, e.g., 11 = 1.1%"
@@ -142,19 +142,19 @@ class SondeObservation:
         # TODO: Is dew point depression the same as dew point temperature?
         dp_temp = int(line[34:39])
         self.dew_point_temp[level_index] = 0.1 * dp_temp \
-            if dp_temp != missing_txt else missing_ecc
+            if dp_temp not in missing_txt else missing_ecc
 
         # Wind direction
         #  "degrees from north, 90 = east"
         wind_dir = int(line[40:45])
         self.wind_direction[level_index] = wind_dir \
-            if wind_dir != missing_txt else missing_ecc
+            if wind_dir not in missing_txt else missing_ecc
 
         # Wind speed
         #  "meters per second to tenths, e.g., 11 = 1.1 ms/1"
         wind_speed = int(line[46:51])
         self.wind_speed[level_index] = 0.1 * wind_speed \
-            if wind_speed != missing_txt else missing_ecc
+            if wind_speed not in missing_txt else missing_ecc
 
         # line[0:2] is the level type
         # First digit : Major level type indicator
@@ -177,7 +177,11 @@ class SondeTXT:
         Intended for use with BARRA2.
     """
 
-    MISSING = -9999
+    # For most fields the following applies:
+    # "-8888 = Value removed by IGRA quality assurance, but valid
+    #              data remain at the same level.
+    #  -9999 = Value missing prior to quality assurance."
+    MISSING = [-9999, -8888]
 
     def __init__(self):
         self.observations = []
