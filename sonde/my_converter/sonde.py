@@ -15,7 +15,7 @@ import numpy as np
 import eccodes as ecc
 import netCDF4
 from scipy.constants import zero_Celsius, g as gravity
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # CLASSES
@@ -110,7 +110,8 @@ class SondeObservation:
         self.date_time = datetime(year=int(line[13:17]),
                                   month=int(line[18:20]),
                                   day=int(line[21:23]),
-                                  hour=int(line[24:26]))
+                                  hour=int(line[24:26]),
+                                  tzinfo=timezone.utc)
 
         self.n_levels = int(line[32:36])
 
