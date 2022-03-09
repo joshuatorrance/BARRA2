@@ -115,24 +115,23 @@ class SondeObservation:
         LevelType1 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
         """
         # Convenience vars
-        MISSING_TXT = SondeTXT.MISSING
-        MISSING_ECC = ecc.CODES_MISSING_DOUBLE
+        missing_txt = SondeTXT.MISSING
+        missing_ecc = ecc.CODES_MISSING_DOUBLE
 
         p = int(line[9:15])
-        self.pressure[lev_index] = p if p!=MISSING_TXT else MISSING_ECC
-
+        self.pressure[lev_index] = p if p != missing_txt else missing_ecc
 
         # geometric height to geopotential height
-        # TODO: Docs say this is already geopotential height
+        # TODO: Docs say this is already geopotential height...
         ht = int(line[16:21])
-        self.ht[lev_index] = ht / gravity if ht!=MISSING_TXT else MISSING_ECC
+        self.ht[lev_index] = ht / gravity if ht != missing_txt else missing_ecc
 
         # 10C, convert to K
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
         air_temp = int(line[22:27])
         self.air_temp[lev_index] = 0.1 * int(line[22:27]) + zero_Celsius \
-                                   if air_temp!=MISSING_TXT else MISSING_ECC
+            if air_temp != missing_txt else missing_ecc
 
         # Relative humidity
         #  "percent to tenths, e.g., 11 = 1.1%"
@@ -142,17 +141,20 @@ class SondeObservation:
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         # TODO: Is dew point depression the same as dew point temperature?
         dp_temp = int(line[34:39])
-        self.dew_point_temp[lev_index] = 0.1 * dp_temp if dp_temp!=MISSING_TXT else MISSING_ECC
+        self.dew_point_temp[lev_index] = 0.1 * dp_temp \
+            if dp_temp != missing_txt else missing_ecc
 
         # Wind direction
         #  "degrees from north, 90 = east"
         wind_dir = int(line[40:45])
-        self.wind_direction[lev_index] = wind_dir if wind_dir!=MISSING_TXT else MISSING_ECC
+        self.wind_direction[lev_index] = wind_dir \
+            if wind_dir != missing_txt else missing_ecc
 
         # Wind speed
         #  "meters per second to tenths, e.g., 11 = 1.1 ms/1"
         wind_speed = int(line[46:51])
-        self.wind_speed[lev_index] = 0.1 * wind_speed if wind_speed!=MISSING_TXT else MISSING_ECC
+        self.wind_speed[lev_index] = 0.1 * wind_speed \
+            if wind_speed != missing_txt else missing_ecc
 
         # line[0:2] is the level type
         # First digit : Major level type indicator
