@@ -369,6 +369,8 @@ class SondeBUFR:
         while sonde_nc.year_month_day[self._year_month_day_index] < year_month_day:
             self._year_month_day_index += 1
 
+        # TODO: Figure out what's happening here with setting the bias correction.
+        # If the date on the bias data matches year_month_day...
         if year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
             for hour_index in range(sonde_nc.n_hours):
                 if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
