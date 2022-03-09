@@ -41,12 +41,11 @@ class SondeObservation:
         # Levels (measurements at a given level/altitude/pressure)
         self.n_levels = None
 
-        # Lev arrays
+        # Arrays - Initialise as None.
         self.pressure = None
         self.height = None
         self.air_temp = None
-        # Not used
-        # self.relative_humidity = None
+        # self.relative_humidity = None # Not used
         self.dew_point_temp = None
         self.wind_direction = None
         self.wind_speed = None
