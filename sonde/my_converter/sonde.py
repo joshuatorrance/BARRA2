@@ -10,6 +10,7 @@
 # Author: Joshua Torrance
 
 # IMPORTS
+from math import floor
 import numpy as np
 import eccodes as ecc
 import netCDF4
@@ -324,11 +325,11 @@ class SondeBUFR:
 
         ecc.codes_set(self.output_bufr, 'unpack', 1)
 
-        # TODO: 0.01 * year? What's going on here?
-        #  2022 * 0.01 = 2022 / 100 = 20.22... a float and not the "typicalYearOfCentury"
-        #  I suspect it should be (year % 100) to get two digit year,
-        #  or just get get the two digit year from the datetime
-        ecc.codes_set(self.output_bufr, 'typicalYearOfCentury', 0.01 * sonde_txt_obs.date_time.year)
+        century = floor(sonde_txt_obs.date_time.year / 100)
+        year_of_century = sonde_txt_obs.date_time.year % 100
+
+        ecc.codes_set(self.output_bufr, 'typicalCentury', century)
+        ecc.codes_set(self.output_bufr, 'typicalYearOfCentury', year_of_century)
         ecc.codes_set(self.output_bufr, 'typicalMonth', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'typicalDay', sonde_txt_obs.date_time.day)
         ecc.codes_set(self.output_bufr, 'typicalHour', sonde_txt_obs.date_time.hour)
