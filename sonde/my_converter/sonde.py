@@ -115,10 +115,11 @@ class SondeObservation:
 
         self.n_levels = int(line[32:36])
 
-        # TODO: Why 0.0001 (divide by 10,000)?
         # "is the latitude/longitute of the station (in decimal degrees)"
-        self.lat = 0.0001 * int(line[55:62])
-        self.lon = 0.0001 * int(line[63:71])
+        # This is not documented but the lat/lon in the data file is in fact the
+        # lat/lon * 10,000 (i.e. four digits of precision, presented as an integer)
+        self.lat = int(line[55:62]) / 10000
+        self.lon = int(line[63:71]) / 10000
 
     def _read_level(self, line, level_index):
         """
