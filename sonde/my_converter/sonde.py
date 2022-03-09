@@ -371,7 +371,7 @@ class SondeBUFR:
             year_month_day_index = None
 
         # If a matching date has been found...
-        if year_month_day_index!=None:
+        if year_month_day_index is not None:
             # See if the hour matches the bias correction data
             for hour_index in range(sonde_nc.n_hours):
                 if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, year_month_day_index]:
