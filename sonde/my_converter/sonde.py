@@ -298,13 +298,13 @@ class SondeBUFR:
 
     def t_bias(self, hour_index, sonde_txt, sonde_nc):
         """
-        replace temp with bias-corrected temp from nc
+        Replace temperature with bias-corrected temperature from nc
         """
         for txt_level_index in range(sonde_txt.n_levels):
             for nc_level_index in range(sonde_nc.n_levels):
                 if sonde_nc.pressure[nc_level_index] == sonde_txt.pressure[txt_level_index]:
                     if sonde_nc.air_temp[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING \
-                            and sonde_nc.bias[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING:
+                          and sonde_nc.bias[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING:
                         ecc.codes_set(self.b_temp,
                                       self.air_temp[txt_level_index],
                                       np.float64(sonde_nc.air_temp[hour_index,
