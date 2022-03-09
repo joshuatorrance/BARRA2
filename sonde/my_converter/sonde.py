@@ -41,12 +41,11 @@ class SondeObservation:
         # Levels (measurements at a given level/altitude/pressure)
         self.n_levels = None
 
-        # Lev arrays
+        # Arrays - Initialise as None.
         self.pressure = None
         self.height = None
         self.air_temp = None
-        # Not used
-        # self.relative_humidity = None
+        # self.relative_humidity = None # Not used
         self.dew_point_temp = None
         self.wind_direction = None
         self.wind_speed = None
@@ -88,7 +87,7 @@ class SondeObservation:
         #ASM00094120 1943 05 30 18 9999    7 ncdc6310          -124239  1308925
         
         According to the docs it should be (character columns don't match in
-                                            the following line'):
+                                            the following line):
         #ID YEAR MONTH DAY HOUR HHmm NUM_LEVELS P_SRC NP_SRC LAT LON
         """
         self.station_blk = int(line[7:9])
@@ -327,6 +326,8 @@ class SondeBUFR:
 
         # TODO: 0.01 * year? What's going on here?
         #  2022 * 0.01 = 2022 / 100 = 20.22... a float and not the "typicalYearOfCentury"
+        #  I suspect it should be (year % 100) to get two digit year,
+        #  or just get get the two digit year from the datetime
         ecc.codes_set(self.b_temp, 'typicalYearOfCentury', 0.01 * sonde_txt_obs.date_time.year)
         ecc.codes_set(self.b_temp, 'typicalMonth', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.b_temp, 'typicalDay', sonde_txt_obs.date_time.day)
