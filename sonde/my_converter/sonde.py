@@ -261,16 +261,16 @@ class SondeBUFR:
                 12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
                 11062, 55017)
 
-    def __init__(self, template_path, n_levs):
-        self.pressure = [""] * n_levs
-        self.ht = [""] * n_levs
-        self.air_temp = [""] * n_levs
-        self.dew_point_temp = [""] * n_levs
-        self.wind_direction = [""] * n_levs
-        self.wind_speed = [""] * n_levs
-        for i in range(n_levs):
+    def __init__(self, template_path, n_levels):
+        self.pressure = [""] * n_levels
+        self.height = [""] * n_levels
+        self.air_temp = [""] * n_levels
+        self.dew_point_temp = [""] * n_levels
+        self.wind_direction = [""] * n_levels
+        self.wind_speed = [""] * n_levels
+        for i in range(n_levels):
             self.pressure[i] = '#' + str(i + 1) + '#pressure'
-            self.ht[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
+            self.height[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
             self.air_temp[i] = '#' + str(i + 1) + '#airTemperature'
             self.dew_point_temp[i] = '#' + str(i + 1) + '#dewpointTemperature'
             self.wind_direction[i] = '#' + str(i + 1) + '#windDirection'
@@ -347,7 +347,7 @@ class SondeBUFR:
 
         for i in range(sonde_txt_obs.n_levels):
             ecc.codes_set(self.b_temp, self.pressure[i], sonde_txt_obs.pressure[i])
-            ecc.codes_set(self.b_temp, self.ht[i], sonde_txt_obs.height[i])
+            ecc.codes_set(self.b_temp, self.height[i], sonde_txt_obs.height[i])
             ecc.codes_set(self.b_temp, self.air_temp[i], sonde_txt_obs.air_temp[i])
             ecc.codes_set(self.b_temp, self.dew_point_temp[i], sonde_txt_obs.dew_point_temp[i])
             ecc.codes_set(self.b_temp, self.wind_direction[i], sonde_txt_obs.wind_direction[i])
@@ -357,8 +357,8 @@ class SondeBUFR:
 
         # check if bias-corrected temp is available
         year_month_day = 10000 * sonde_txt_obs.date_time.year + \
-                         100 * sonde_txt_obs.date_time.month + \
-                         sonde_txt_obs.date_time.day
+            100 * sonde_txt_obs.date_time.month + \
+            sonde_txt_obs.date_time.day
 
         print(year_month_day, sonde_nc.year_month_day[self._year_month_day_index])
 
