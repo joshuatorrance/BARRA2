@@ -111,37 +111,48 @@ class SondeObservation:
         
         Example level reading:
         21 -9999 101500A   10   256A  810 -9999   110    40
+
         LevelType1 ElapsedTime Pressure PFLAG GPH ZFLAG TEMP TFLAG RH DPDP WDIR WSPD
         """
-        # TODO: update this to not split, data format defines columsn not
-        #       whitespace separated strings
-        # get rid of the "A", where from '(a2,i5,i6,6i5)' ???
-        line = line.replace("A", " ")
-        x = line.split()
-        for i in range(len(x)):
-            if int(x[i]) == SondeTXT.MISSING:
-                x[i] = ecc.CODES_MISSING_DOUBLE
+        # Convenience vars
+        MISSING_TXT = SondeTXT.MISSING
+        MISSING_ECC = ecc.CODES_MISSING_DOUBLE
 
-        print "#####################"
-        print line
-
-        if_not_missing = lambda x: x if x!=SondeTXT.MISSING else ecc.CODES_MISSING_DOUBLE
-
-        self.pressure[lev_index] = if_not_missing(int(line[9:15]))
+        p = int(line[9:15])
+        self.pressure[lev_index] = p if p!=MISSING_TXT else MISSING_ECC
 
 
         # geometric height to geopotential height
         # TODO: Docs say this is already geopotential height
-        self.ht[lev_index] = if_not_missing(int(line[16:21]) / gravity)
+        ht = int(line[16:21])
+        self.ht[lev_index] = ht / gravity if ht!=MISSING_TXT else MISSING_ECC
 
         # 10C, convert to K
-        if self.air_temp[lev_index] != ecc.CODES_MISSING_DOUBLE:
-            self.air_temp[lev_index] = 0.1 * int(x[4]) + zero_Celsius
+        #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
+        #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
+        air_temp = int(line[22:27])
+        self.air_temp[lev_index] = 0.1 * int(line[22:27]) + zero_Celsius \
+                                   if air_temp!=MISSING_TXT else MISSING_ECC
 
-        # self.relative_humidity[lev_index] = int(x[5])
-        self.dew_point_temp[lev_index] = int(x[6])
-        self.wind_direction[lev_index] = int(x[7])
-        self.wind_speed[lev_index] = int(x[8])
+        # Relative humidity
+        #  "percent to tenths, e.g., 11 = 1.1%"
+        # self.relative_humidity[lev_index] = 0.1 * int(line[28:33])
+
+        # Dew point depression
+        #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
+        # TODO: Is dew point depression the same as dew point temperature?
+        dp_temp = int(line[34:39])
+        self.dew_point_temp[lev_index] = 0.1 * dp_temp if dp_temp!=MISSING_TXT else MISSING_ECC
+
+        # Wind direction
+        #  "degrees from north, 90 = east"
+        wind_dir = int(line[40:45])
+        self.wind_direction[lev_index] = wind_dir if wind_dir!=MISSING_TXT else MISSING_ECC
+
+        # Wind speed
+        #  "meters per second to tenths, e.g., 11 = 1.1 ms/1"
+        wind_speed = int(line[46:51])
+        self.wind_speed[lev_index] = 0.1 * wind_speed if wind_speed!=MISSING_TXT else MISSING_ECC
 
         # line[0:2] is the level type
         # First digit : Major level type indicator
@@ -152,6 +163,8 @@ class SondeObservation:
         #               1 - Surface
         #               2 - Tropopause
         #               3 - Other
+        # If this level has type "21" then it's at the surface and we
+        #  can set the station height
         if line[0:2] == "21":
             self.station_height = self.ht[lev_index]
 
