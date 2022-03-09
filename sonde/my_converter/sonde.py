@@ -299,23 +299,23 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'compressedData', 1)
         ecc.codes_set(self.output_bufr, 'numberOfSubsets', 1)
 
-    def t_bias(self, hour_index, sonde_txt, sonde_nc):
+    def t_bias(self, hour_index, sonde_txt, sonde_nc, nc_year_month_day_index):
         """
         Replace temperature with bias-corrected temperature from nc
         """
         for txt_level_index in range(sonde_txt.n_levels):
             for nc_level_index in range(sonde_nc.n_levels):
                 if sonde_nc.pressure[nc_level_index] == sonde_txt.pressure[txt_level_index]:
-                    if sonde_nc.air_temp[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING \
-                          and sonde_nc.bias[hour_index, nc_level_index, self._year_month_day_index] != sonde_nc.MISSING:
+                    if sonde_nc.air_temp[hour_index, nc_level_index, nc_year_month_day_index] != sonde_nc.MISSING \
+                          and sonde_nc.bias[hour_index, nc_level_index, nc_year_month_day_index] != sonde_nc.MISSING:
                         ecc.codes_set(self.output_bufr,
                                       self.air_temp[txt_level_index],
                                       np.float64(sonde_nc.air_temp[hour_index,
                                                                    nc_level_index,
-                                                                   self._year_month_day_index]
+                                                                   nc_year_month_day_index]
                                                  + sonde_nc.bias[hour_index,
                                                                  nc_level_index,
-                                                                 self._year_month_day_index]))
+                                                                 nc_year_month_day_index]))
                     break
 
     def write_bufr_message(self, file_bufr, sonde_txt_obs, sonde_nc):
@@ -361,21 +361,20 @@ class SondeBUFR:
         # ecc.codes_set(self.b_temp, 'radiosondeType', t.sonde_type)
 
         # check if bias-corrected temp is available
-        year_month_day = 10000 * sonde_txt_obs.date_time.year + \
+        txt_year_month_day = 10000 * sonde_txt_obs.date_time.year + \
             100 * sonde_txt_obs.date_time.month + \
             sonde_txt_obs.date_time.day
 
-        print(year_month_day, sonde_nc.year_month_day[self._year_month_day_index])
-
-        while sonde_nc.year_month_day[self._year_month_day_index] < year_month_day:
+        # Find the index where sonde_nc.year_month_day matches txt_year_month_day
+        while sonde_nc.year_month_day[self._year_month_day_index] < txt_year_month_day:
             self._year_month_day_index += 1
 
         # TODO: Figure out what's happening here with setting the bias correction.
         # If the date on the bias data matches year_month_day...
-        if year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
+        if txt_year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
             for hour_index in range(sonde_nc.n_hours):
                 if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
-                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc)
+                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc, self._year_month_day_index)
                     break
 
             # What's this if up to? Can I use a for else clause instead? Or inside the loop.
