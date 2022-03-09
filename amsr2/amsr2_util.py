@@ -186,6 +186,8 @@ def _filter_amsr2_hdf(hdf_filepath, split_index, mode='before'):
             # Write the new array to the dataset
             dataset[...] = arr
 
+        # TODO: Add to or update the hdf's attrs to reflect the changed data.
+
 
 def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
     # Determine the index of the split_point

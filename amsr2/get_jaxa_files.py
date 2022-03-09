@@ -302,6 +302,8 @@ if __name__ == "__main__":
         process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
 
     if True:
+        # TODO: Abstract this to a function. Or a suite?
+        # TODO: Deal with bins with missing data (whole bin missing or partial bin missing)
         from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes, split_hdf_at_datetime
 
         start_dt = datetime.fromisoformat("2019-12-30T00:00+00:00")
