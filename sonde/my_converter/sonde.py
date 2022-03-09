@@ -379,7 +379,7 @@ class SondeBUFR:
             if hour_index == 1:
                 self._year_month_day_index += 1
 
-        # Avoid unpacking self.b_temp the next time
+        # Avoid unpacking self.output_bufr the next time
         ecc.codes_set(self.output_bufr, 'pack', 1)
         ecc.codes_write(self.output_bufr, file_bufr)
 
