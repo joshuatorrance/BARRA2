@@ -282,8 +282,6 @@ class SondeBUFR:
         with open(template_path, 'r') as f_template:
             self.output_bufr = ecc.codes_bufr_new_from_file(f_template)
 
-        self._year_month_day_index = 0
-
         ecc.codes_set(self.output_bufr, 'unpack', 1)
 
         # Fixed header values, do this once
@@ -366,20 +364,18 @@ class SondeBUFR:
             sonde_txt_obs.date_time.day
 
         # Find the index where sonde_nc.year_month_day matches txt_year_month_day
-        while sonde_nc.year_month_day[self._year_month_day_index] < txt_year_month_day:
-            self._year_month_day_index += 1
+        year_month_day_index = np.where(sonde_nc.year_month_day == txt_year_month_day)[0]
+        if year_month_day_index.size>0:
+            year_month_day_index = year_month_day_index[0]
+        else:
+            year_month_day_index = None
 
-        # TODO: Figure out what's happening here with setting the bias correction.
-        # If the date on the bias data matches year_month_day...
-        if txt_year_month_day == sonde_nc.year_month_day[self._year_month_day_index]:
+        # If a matching date has been found...
+        if year_month_day_index!=None:
+            # See if the hour matches the bias correction data
             for hour_index in range(sonde_nc.n_hours):
-                if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, self._year_month_day_index]:
-                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc, self._year_month_day_index)
-                    break
-
-            # What's this if up to? Can I use a for else clause instead? Or inside the loop.
-            if hour_index == 1:
-                self._year_month_day_index += 1
+                if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, year_month_day_index]:
+                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc, year_month_day_index)
 
         # Avoid unpacking self.output_bufr the next time
         ecc.codes_set(self.output_bufr, 'pack', 1)
