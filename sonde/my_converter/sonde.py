@@ -139,6 +139,8 @@ class SondeObservation:
 
         # geometric height to geopotential height
         # TODO: Docs say this is already geopotential height...
+        #   " is the reported geopotential height (meters above sea level).
+        #     This value is often not available at variable-pressure levels."
         ht = int(line[16:21])
         self.height[level_index] = ht / gravity if ht not in missing_txt else missing_ecc
 
@@ -313,7 +315,6 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'masterTablesVersionNumber', 26)
         ecc.codes_set(self.output_bufr, 'localTablesVersionNumber', 0)
 
-        ecc.codes_set(self.output_bufr, 'typicalMinute', 0)
         ecc.codes_set(self.output_bufr, 'compressedData', 1)
         ecc.codes_set(self.output_bufr, 'numberOfSubsets', 1)
 
@@ -351,6 +352,7 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'typicalMonth', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'typicalDay', sonde_txt_obs.date_time.day)
         ecc.codes_set(self.output_bufr, 'typicalHour', sonde_txt_obs.date_time.hour)
+        ecc.codes_set(self.output_bufr, 'typicalMinute', 0)
 
         ecc.codes_set(self.output_bufr,
                       'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levels)
