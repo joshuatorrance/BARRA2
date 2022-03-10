@@ -145,8 +145,8 @@ def _get_split_index(hdf_filepath, split_point_dt,
 
             return split_index
         else:
-            raise ValueError("hdf_util._get_split_index: split_point_dt "
-                             "outside HDF file's datetime range.")
+            raise ValueError("hdf_util._get_split_index: split_point_dt {} "
+                             "outside HDF file's datetime range {} to {}.".format(split_point_dt, start_dt, end_dt))
 
 
 def _filter_amsr2_hdf(hdf_filepath, split_index, mode='before'):
