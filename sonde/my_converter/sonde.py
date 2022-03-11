@@ -44,7 +44,7 @@ class SondeObservation:
 
         # Arrays - Initialise as None.
         self.pressure = None
-        self.height = None
+        self.geopotential_height = None
         self.air_temp = None
         # self.relative_humidity = None # Not used
         self.dew_point_temp = None
@@ -61,7 +61,7 @@ class SondeObservation:
 
         # Now that we know the number of levels we can build the arrays
         self.pressure = np.zeros(self.n_levels)
-        self.height = np.zeros(self.n_levels)
+        self.geopotential_height = np.zeros(self.n_levels)
         self.air_temp = np.zeros(self.n_levels)
         # self.relative_humidity = np.zeros(self.n_levels)    # not used
         self.dew_point_temp = np.zeros(self.n_levels)
@@ -136,11 +136,9 @@ class SondeObservation:
             if p not in missing_txt else missing_ecc
 
         # Geopotential height (meters above sea level)
-        # Tan's original commend: geometric height to geopotential height
-        # TODO: Docs say this is already geopotential height...
-        ht = int(line[16:21])
-        self.height[level_index] = ht / gravity \
-            if ht not in missing_txt else missing_ecc
+        geo_ht = int(line[16:21])
+        self.geopotential_height[level_index] = geo_ht \
+            if geo_ht not in missing_txt else missing_ecc
 
         # Temperature
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
@@ -183,10 +181,13 @@ class SondeObservation:
         #               1 - Surface
         #               2 - Tropopause
         #               3 - Other
-        # If this level has type "x1" then it's at the surface and we
-        #  can set the station height
+        # If this level has type "x1" then it's at the surface, and we can set
+        # the station height
         if line[1:2] == "1":
-            self.station_height = self.height[level_index]
+            # When the gravity is at its average value,
+            # geometric height = geopotential height
+            # Assume that at ground level (i.e. where the station is) g=g0
+            self.station_height = self.geopotential_height[level_index]
 
 
 class SondeTXT:
@@ -288,14 +289,14 @@ class SondeBUFR:
 
     def __init__(self, template_path, n_levels):
         self.pressure = [""] * n_levels
-        self.height = [""] * n_levels
+        self.geopotential_height = [""] * n_levels
         self.air_temp = [""] * n_levels
         self.dew_point_temp = [""] * n_levels
         self.wind_direction = [""] * n_levels
         self.wind_speed = [""] * n_levels
         for i in range(n_levels):
             self.pressure[i] = '#' + str(i + 1) + '#pressure'
-            self.height[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
+            self.geopotential_height[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
             self.air_temp[i] = '#' + str(i + 1) + '#airTemperature'
             self.dew_point_temp[i] = '#' + str(i + 1) + '#dewpointTemperature'
             self.wind_direction[i] = '#' + str(i + 1) + '#windDirection'
@@ -374,7 +375,7 @@ class SondeBUFR:
 
         for i in range(sonde_txt_obs.n_levels):
             ecc.codes_set(self.output_bufr, self.pressure[i], sonde_txt_obs.pressure[i])
-            ecc.codes_set(self.output_bufr, self.height[i], sonde_txt_obs.height[i])
+            ecc.codes_set(self.output_bufr, self.geopotential_height[i], sonde_txt_obs.geopotential_height[i])
             ecc.codes_set(self.output_bufr, self.air_temp[i], sonde_txt_obs.air_temp[i])
             ecc.codes_set(self.output_bufr, self.dew_point_temp[i], sonde_txt_obs.dew_point_temp[i])
             ecc.codes_set(self.output_bufr, self.wind_direction[i], sonde_txt_obs.wind_direction[i])
