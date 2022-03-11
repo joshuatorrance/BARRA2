@@ -134,6 +134,10 @@ class SondeObservation:
         missing_txt = SondeTXT.MISSING
         missing_ecc = ecc.CODES_MISSING_DOUBLE
 
+        # Pressure
+        #   "Pa or mb * 100, e.g., 100000 = 1000 hPa or 1000 mb"
+        #   Since 1 Pa = 0.01 mb, do not adjust and our units will be in the
+        #   SI unit - Pa.
         p = int(line[9:15])
         self.pressure[level_index] = p \
             if p not in missing_txt else missing_ecc
