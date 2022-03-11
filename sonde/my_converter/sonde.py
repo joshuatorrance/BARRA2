@@ -3,6 +3,8 @@
 #
 # ecCodes3 may not be installed properly on NCI. Retreating to python2, attempting
 # to keep it version agnostic.
+# -ecCodes3 only works with the module python3/3.8.5
+# -netCDF4 only seems to be installed for python2 though :(
 #
 # Documentation on the data format can be found at:
 #   /g/data/hd50/barra2/data/obs/igra/doc/igra2-data-format.txt
