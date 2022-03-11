@@ -97,7 +97,7 @@ class SondeObservation:
         # network code that identifies the station numbering system used, and
         # the remaining eight characters contain the actual station ID"
         station_id = line[1:12]
-        if station_id[2]=='M':
+        if station_id[2] == 'M':
             #  M = WMO identification number (last five characters of the IGRA 2 ID)
             self.wmo_station_block_number = int(line[7:9])
             self.wmo_station_block_number = int(station_id[6:8])
@@ -132,14 +132,17 @@ class SondeObservation:
         missing_ecc = ecc.CODES_MISSING_DOUBLE
 
         p = int(line[9:15])
-        self.pressure[level_index] = p if p not in missing_txt else missing_ecc
+        self.pressure[level_index] = p \
+            if p not in missing_txt else missing_ecc
 
-        # geometric height to geopotential height
+        # Geopotential height (meters above sea level)
+        # Tan's original commend: geometric height to geopotential height
         # TODO: Docs say this is already geopotential height...
         ht = int(line[16:21])
-        self.height[level_index] = ht / gravity if ht not in missing_txt else missing_ecc
+        self.height[level_index] = ht / gravity \
+            if ht not in missing_txt else missing_ecc
 
-        # 10C, convert to K
+        # Temperature
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
         air_temp = int(line[22:27])
@@ -153,6 +156,8 @@ class SondeObservation:
         # Dew point depression
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         # TODO: Is dew point depression the same as dew point temperature?
+        #  dew point depression = temperature - dew point temperature
+        #  we have a variable (could be missing) for temperature, can calculate
         dp_temp = int(line[34:39])
         self.dew_point_temp[level_index] = 0.1 * dp_temp \
             if dp_temp not in missing_txt else missing_ecc
@@ -384,7 +389,7 @@ class SondeBUFR:
 
         # Find the index where sonde_nc.year_month_day matches txt_year_month_day
         year_month_day_index = np.where(sonde_nc.year_month_day == txt_year_month_day)[0]
-        if year_month_day_index.size>0:
+        if year_month_day_index.size > 0:
             year_month_day_index = year_month_day_index[0]
         else:
             year_month_day_index = None
