@@ -3,6 +3,8 @@
 #
 # ecCodes3 may not be installed properly on NCI. Retreating to python2, attempting
 # to keep it version agnostic.
+# -ecCodes3 only works with the module python3/3.8.5
+# -netCDF4 only seems to be installed for python2 though :(
 #
 # Documentation on the data format can be found at:
 #   /g/data/hd50/barra2/data/obs/igra/doc/igra2-data-format.txt
@@ -14,7 +16,7 @@ from math import floor
 import numpy as np
 import eccodes as ecc
 import netCDF4
-from scipy.constants import zero_Celsius, g as gravity
+from scipy.constants import zero_Celsius
 from datetime import datetime
 
 
@@ -27,9 +29,9 @@ class SondeObservation:
     """
 
     def __init__(self):
-        # blk?
-        self.station_blk = None
-        self.station_number = None
+        # WMO Station IDs
+        self.wmo_station_block_number = None
+        self.wmo_station_number = None
 
         self.date_time = None
 
@@ -44,7 +46,7 @@ class SondeObservation:
 
         # Arrays - Initialise as None.
         self.pressure = None
-        self.height = None
+        self.geopotential_height = None
         self.air_temp = None
         # self.relative_humidity = None # Not used
         self.dew_point_temp = None
@@ -61,9 +63,9 @@ class SondeObservation:
 
         # Now that we know the number of levels we can build the arrays
         self.pressure = np.zeros(self.n_levels)
-        self.height = np.zeros(self.n_levels)
+        self.geopotential_height = np.zeros(self.n_levels)
         self.air_temp = np.zeros(self.n_levels)
-        #   self.relative_humidity = np.zeros(self.n_levels)    # not used
+        # self.relative_humidity = np.zeros(self.n_levels)    # not used
         self.dew_point_temp = np.zeros(self.n_levels)
         self.wind_direction = np.zeros(self.n_levels)
         self.wind_speed = np.zeros(self.n_levels)
@@ -91,8 +93,21 @@ class SondeObservation:
                                             the following line):
         #ID YEAR MONTH DAY HOUR HHmm NUM_LEVELS P_SRC NP_SRC LAT LON
         """
-        self.station_blk = int(line[7:9])
-        self.station_number = int(line[9:12])
+        # Station ID can be matched in igra2-stations.txt
+        # "is the station identification code.  Note that the first two
+        # characters denote the FIPS  country code, the third character is a
+        # network code that identifies the station numbering system used, and
+        # the remaining eight characters contain the actual station ID"
+        station_id = line[1:12]
+        if station_id[2] == 'M':
+            #  M = WMO identification number (last five characters of the IGRA 2 ID)
+            self.wmo_station_block_number = int(line[7:9])
+            self.wmo_station_block_number = int(station_id[6:8])
+            self.wmo_station_number = int(line[9:12])
+            self.wmo_station_number = int(station_id[8:11])
+        else:
+            raise ValueError("Unhandled station ID type, {}, for station ID: {}"
+                             .format(station_id[2], station_id))
 
         self.date_time = datetime(year=int(line[13:17]),
                                   month=int(line[18:20]),
@@ -101,9 +116,12 @@ class SondeObservation:
 
         self.n_levels = int(line[32:36])
 
-        # TODO: Why 0.0001 (divide by 10,000)?
-        self.lat = 0.0001 * int(line[55:62])
-        self.lon = 0.0001 * int(line[63:71])
+        # Latitude & Longitude
+        #   Lat/Lon are given in degrees with 4 digits precision after the
+        #   decimal point but as integers. So divide by 10,000 to get actual
+        #   values in degrees.
+        self.lat = int(line[55:62]) / 10000
+        self.lon = int(line[63:71]) / 10000
 
     def _read_level(self, line, level_index):
         """
@@ -118,15 +136,20 @@ class SondeObservation:
         missing_txt = SondeTXT.MISSING
         missing_ecc = ecc.CODES_MISSING_DOUBLE
 
+        # Pressure
+        #   "Pa or mb * 100, e.g., 100000 = 1000 hPa or 1000 mb"
+        #   Since 1 Pa = 0.01 mb, do not adjust and our units will be in the
+        #   SI unit - Pa.
         p = int(line[9:15])
-        self.pressure[level_index] = p if p not in missing_txt else missing_ecc
+        self.pressure[level_index] = p \
+            if p not in missing_txt else missing_ecc
 
-        # geometric height to geopotential height
-        # TODO: Docs say this is already geopotential height...
-        ht = int(line[16:21])
-        self.height[level_index] = ht / gravity if ht not in missing_txt else missing_ecc
+        # Geopotential height (meters above sea level)
+        geo_ht = int(line[16:21])
+        self.geopotential_height[level_index] = geo_ht \
+            if geo_ht not in missing_txt else missing_ecc
 
-        # 10C, convert to K
+        # Temperature
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
         #   so temperature given as milli-degrees, divide by ten and convert to Kelvin
         air_temp = int(line[22:27])
@@ -139,10 +162,12 @@ class SondeObservation:
 
         # Dew point depression
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
-        # TODO: Is dew point depression the same as dew point temperature?
+        #
+        # Dew point depression = temperature - dew point temperature
+        # => dew point temperature = temperature - dew point depression
         dp_temp = int(line[34:39])
-        self.dew_point_temp[level_index] = 0.1 * dp_temp \
-            if dp_temp not in missing_txt else missing_ecc
+        self.dew_point_temp[level_index] = self.air_temp[level_index] - 0.1 * dp_temp \
+            if dp_temp not in missing_txt and air_temp not in missing_txt else missing_ecc
 
         # Wind direction
         #  "degrees from north, 90 = east"
@@ -165,10 +190,13 @@ class SondeObservation:
         #               1 - Surface
         #               2 - Tropopause
         #               3 - Other
-        # If this level has type "x1" then it's at the surface and we
-        #  can set the station height
+        # If this level has type "x1" then it's at the surface, and we can set
+        # the station height
         if line[1:2] == "1":
-            self.station_height = self.height[level_index]
+            # When the gravity is at its average value,
+            # geometric height = geopotential height
+            # Assume that at ground level (i.e. where the station is) g=g0
+            self.station_height = self.geopotential_height[level_index]
 
 
 class SondeTXT:
@@ -270,14 +298,14 @@ class SondeBUFR:
 
     def __init__(self, template_path, n_levels):
         self.pressure = [""] * n_levels
-        self.height = [""] * n_levels
+        self.geopotential_height = [""] * n_levels
         self.air_temp = [""] * n_levels
         self.dew_point_temp = [""] * n_levels
         self.wind_direction = [""] * n_levels
         self.wind_speed = [""] * n_levels
         for i in range(n_levels):
             self.pressure[i] = '#' + str(i + 1) + '#pressure'
-            self.height[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
+            self.geopotential_height[i] = '#' + str(i + 1) + '#nonCoordinateGeopotentialHeight'
             self.air_temp[i] = '#' + str(i + 1) + '#airTemperature'
             self.dew_point_temp[i] = '#' + str(i + 1) + '#dewpointTemperature'
             self.wind_direction[i] = '#' + str(i + 1) + '#windDirection'
@@ -341,8 +369,8 @@ class SondeBUFR:
         ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
-        ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.station_blk)
-        ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.station_number)
+        ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
+        ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
         ecc.codes_set(self.output_bufr, 'year', sonde_txt_obs.date_time.year)
         ecc.codes_set(self.output_bufr, 'month', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'day', sonde_txt_obs.date_time.day)
@@ -356,7 +384,7 @@ class SondeBUFR:
 
         for i in range(sonde_txt_obs.n_levels):
             ecc.codes_set(self.output_bufr, self.pressure[i], sonde_txt_obs.pressure[i])
-            ecc.codes_set(self.output_bufr, self.height[i], sonde_txt_obs.height[i])
+            ecc.codes_set(self.output_bufr, self.geopotential_height[i], sonde_txt_obs.geopotential_height[i])
             ecc.codes_set(self.output_bufr, self.air_temp[i], sonde_txt_obs.air_temp[i])
             ecc.codes_set(self.output_bufr, self.dew_point_temp[i], sonde_txt_obs.dew_point_temp[i])
             ecc.codes_set(self.output_bufr, self.wind_direction[i], sonde_txt_obs.wind_direction[i])
@@ -371,7 +399,7 @@ class SondeBUFR:
 
         # Find the index where sonde_nc.year_month_day matches txt_year_month_day
         year_month_day_index = np.where(sonde_nc.year_month_day == txt_year_month_day)[0]
-        if year_month_day_index.size>0:
+        if year_month_day_index.size > 0:
             year_month_day_index = year_month_day_index[0]
         else:
             year_month_day_index = None
