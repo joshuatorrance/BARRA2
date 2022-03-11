@@ -114,9 +114,12 @@ class SondeObservation:
 
         self.n_levels = int(line[32:36])
 
-        # TODO: Why 0.0001 (divide by 10,000)?
-        self.lat = 0.0001 * int(line[55:62])
-        self.lon = 0.0001 * int(line[63:71])
+        # Latitude & Longitude
+        #   Lat/Lon are given in degrees with 4 digits precision after the
+        #   decimal point but as integers. So divide by 10,000 to get actual
+        #   values in degrees.
+        self.lat = int(line[55:62]) / 10000
+        self.lon = int(line[63:71]) / 10000
 
     def _read_level(self, line, level_index):
         """
@@ -153,12 +156,12 @@ class SondeObservation:
 
         # Dew point depression
         #   "degrees C to tenths, e.g., 11 = 1.1 degrees C"
-        # TODO: Is dew point depression the same as dew point temperature?
-        #  dew point depression = temperature - dew point temperature
-        #  we have a variable (could be missing) for temperature, can calculate
+        #
+        # Dew point depression = temperature - dew point temperature
+        # => dew point temperature = temperature - dew point depression
         dp_temp = int(line[34:39])
-        self.dew_point_temp[level_index] = 0.1 * dp_temp \
-            if dp_temp not in missing_txt else missing_ecc
+        self.dew_point_temp[level_index] = self.air_temp[level_index] - 0.1 * dp_temp \
+            if dp_temp not in missing_txt and air_temp not in missing_txt else missing_ecc
 
         # Wind direction
         #  "degrees from north, 90 = east"
