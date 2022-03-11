@@ -14,7 +14,7 @@ from math import floor
 import numpy as np
 import eccodes as ecc
 import netCDF4
-from scipy.constants import zero_Celsius, g as gravity
+from scipy.constants import zero_Celsius
 from datetime import datetime
 
 
