@@ -79,7 +79,6 @@ def main():
 
     with open(path_output_bufr, 'wb') as file_bufr:
         # TODO: This "write bufr file" loop should be abstracted
-
         for obs in sonde_txt.observations:
             sonde_bufr = SondeBUFR(path_template_bufr, obs.n_levels)
 
