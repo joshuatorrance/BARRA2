@@ -335,7 +335,7 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
 
             if last_file_of_prev_bin:
                 delete_file(last_file_of_prev_bin)
-                
+
             last_file_of_prev_bin = None
 
             continue
@@ -407,7 +407,9 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
             move_file(f, dest)
 
     # Clean up the temp directory
-    delete_file(last_file_of_prev_bin)
+    if last_file_of_prev_bin:
+        delete_file(last_file_of_prev_bin)
+
     rmdir(temp_dir)
 
 
