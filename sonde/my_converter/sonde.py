@@ -17,7 +17,7 @@ import numpy as np
 import eccodes as ecc
 import netCDF4
 from scipy.constants import zero_Celsius
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # CLASSES
@@ -112,7 +112,8 @@ class SondeObservation:
         self.date_time = datetime(year=int(line[13:17]),
                                   month=int(line[18:20]),
                                   day=int(line[21:23]),
-                                  hour=int(line[24:26]))
+                                  hour=int(line[24:26]),
+                                  tzinfo=timezone.utc)
 
         self.n_levels = int(line[32:36])
 
@@ -291,10 +292,10 @@ class SondeBUFR:
         output sonde data in BUFR for barra2
     """
 
-    TEMP_SEQ = (1011, 1001, 1002, 4001, 4002, 4003, 4004, 4005, 5001,
-                6001, 33003, 7001, 107000, 31002, 8001, 7004, 10009,
-                12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
-                11062, 55017)
+    TEMPLATE_SEQ = (1011, 1001, 1002, 4001, 4002, 4003, 4004, 4005, 5001,
+                    6001, 33003, 7001, 107000, 31002, 8001, 7004, 10009,
+                    12001, 12003, 11001, 11002, 2013, 2011, 2014, 11061,
+                    11062, 55017)
 
     def __init__(self, template_path, n_levels):
         self.pressure = [""] * n_levels
@@ -325,7 +326,6 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'masterTablesVersionNumber', 26)
         ecc.codes_set(self.output_bufr, 'localTablesVersionNumber', 0)
 
-        ecc.codes_set(self.output_bufr, 'typicalMinute', 0)
         ecc.codes_set(self.output_bufr, 'compressedData', 1)
         ecc.codes_set(self.output_bufr, 'numberOfSubsets', 1)
 
@@ -363,19 +363,22 @@ class SondeBUFR:
         ecc.codes_set(self.output_bufr, 'typicalMonth', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'typicalDay', sonde_txt_obs.date_time.day)
         ecc.codes_set(self.output_bufr, 'typicalHour', sonde_txt_obs.date_time.hour)
+        ecc.codes_set(self.output_bufr, 'typicalMinute', 0)
 
         ecc.codes_set(self.output_bufr,
                       'inputExtendedDelayedDescriptorReplicationFactor', sonde_txt_obs.n_levels)
-        ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMP_SEQ)
+        ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMPLATE_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
         ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
         ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
+
         ecc.codes_set(self.output_bufr, 'year', sonde_txt_obs.date_time.year)
         ecc.codes_set(self.output_bufr, 'month', sonde_txt_obs.date_time.month)
         ecc.codes_set(self.output_bufr, 'day', sonde_txt_obs.date_time.day)
         ecc.codes_set(self.output_bufr, 'hour', sonde_txt_obs.date_time.hour)
         ecc.codes_set(self.output_bufr, 'minute', 0)
+
         ecc.codes_set(self.output_bufr, 'latitude', sonde_txt_obs.lat)
         ecc.codes_set(self.output_bufr, 'longitude', sonde_txt_obs.lon)
 
