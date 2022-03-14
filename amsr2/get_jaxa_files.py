@@ -294,7 +294,6 @@ def process_files(ftp_file_paths, data_d=DATA_DIR,
 
 def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FTP_DIR):
     # TODO: Deal with bins with missing data
-    #  -whole bin missing
     #  -partial bin missing (start or end)
 
     # Generate the bin dictionaries (list of {start_dt, end_dt, mid_dt})
@@ -329,6 +328,15 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
         # Download each of the files
         local_file_paths = get_files(files, temp_dir)
         local_file_paths.sort()
+
+        if len(local_file_paths) == 0:
+            # No files found, must be an empty bin.
+            print("\tBin is empty, skipping.")
+
+            delete_file(last_file_of_prev_bin)
+            last_file_of_prev_bin = None
+
+            continue
 
         if not last_file_of_prev_bin:
             # Get the last file of the previous bin
