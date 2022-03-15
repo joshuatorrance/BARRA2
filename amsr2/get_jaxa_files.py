@@ -162,6 +162,11 @@ def get_date_string_from_filename(filename):
     if x:
         return x.group()
 
+def get_datetime_from_filename(filename):
+    date_str = get_date_string_from_filename(filename)
+
+    return datetime.strptime(date_str, JAXA_DT_FORMAT)
+
 
 def convert_hdf_to_bufr(in_file_path, out_file_path=None):
     if exists(CONVERSION_SCRIPT):
@@ -342,37 +347,45 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
 
         if not last_file_of_prev_bin:
             # Get the last file of the previous bin
-            last_file_of_prev_bin = local_file_paths[0]
-
-            def tidy_first_bin_edge(original_filepath, bin_edge_dt):
-                # Name the new file with the starting datetime
-                dt_str = get_date_string_from_filename(basename(original_filepath))
-                new_file = original_filepath.replace(dt_str, bin_edge_dt.strftime(JAXA_DT_FORMAT))
-
-                # Split the file along the bin's start datetime
-                split_hdf_at_datetime(original_filepath, bin_edge_dt, output_filepaths=(None, new_file))
-
-                return new_file
-
-            try:
-                new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
-            except ValueError:
-                # Sometimes there are two files in the hour before the start of the bin.
-                # This will generate a ValueError
-                # Delete the too-early file and remove it from the local file list
-                delete_file(last_file_of_prev_bin)
-                local_file_paths = local_file_paths[1:]
-
-                # Reassign the last_file_of_prev_bin
+            # TODO: check that local_file_paths[0] is outside the bin first
+            file_dt = get_datetime_from_filename(basename(local_file_paths[0]))
+            if file_dt < b['start']:
+                # File begins before the start of the bin as expected.
                 last_file_of_prev_bin = local_file_paths[0]
 
-                new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
+                def tidy_first_bin_edge(original_filepath, bin_edge_dt):
+                    # Name the new file with the starting datetime
+                    dt_str = get_date_string_from_filename(basename(original_filepath))
+                    new_file = original_filepath.replace(dt_str, bin_edge_dt.strftime(JAXA_DT_FORMAT))
 
-            # Delete the original file
-            delete_file(last_file_of_prev_bin)
+                    # Split the file along the bin's start datetime
+                    split_hdf_at_datetime(original_filepath, bin_edge_dt, output_filepaths=(None, new_file))
 
-            # Update the file list
-            local_file_paths[0] = new_filename
+                    return new_file
+
+                try:
+                    new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
+                except ValueError:
+                    # Sometimes there are two files in the hour before the start of the bin.
+                    # This will generate a ValueError
+                    # Delete the too-early file and remove it from the local file list
+                    delete_file(last_file_of_prev_bin)
+                    local_file_paths = local_file_paths[1:]
+
+                    # Reassign the last_file_of_prev_bin
+                    last_file_of_prev_bin = local_file_paths[0]
+
+                    new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
+
+                # Delete the original file
+                delete_file(last_file_of_prev_bin)
+
+                # Update the file list
+                local_file_paths[0] = new_filename
+            else:
+                # First file starts after the start of the bin, don't need to
+                # split the file or alter the filename.
+                pass
         else:
             local_file_paths = [last_file_of_prev_bin] + local_file_paths
 
