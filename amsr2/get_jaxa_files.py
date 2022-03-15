@@ -347,7 +347,6 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
 
         if not last_file_of_prev_bin:
             # Get the last file of the previous bin
-            # TODO: check that local_file_paths[0] is outside the bin first
             file_dt = get_datetime_from_filename(basename(local_file_paths[0]))
             if file_dt < b['start']:
                 # File begins before the start of the bin as expected.
