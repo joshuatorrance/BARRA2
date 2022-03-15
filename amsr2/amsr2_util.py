@@ -125,13 +125,13 @@ def get_observation_limit_from_file(file_path, limit):
         
 
 def get_observation_limit_from_hdf(hdf, limit):
-    if limit!="Start" and limit!="End":
+    if limit != "Start" and limit != "End":
         raise ValueError("Limit must be equal to \"Start\" or \"End\"")
 
     field_string = "Observation{}DateTime".format(limit)
 
     return datetime.fromisoformat(hdf.attrs[field_string][0]
-                                    .replace('Z', '+00:00'))
+                                  .replace('Z', '+00:00'))
 
 
 def _get_split_index(hdf_filepath, split_point_dt,
@@ -148,9 +148,9 @@ def _get_split_index(hdf_filepath, split_point_dt,
         # Check that the split is between the start and end.
         # margin give the number of seconds of grace allowed between the
         #  split point and the start/end datetimes. There's at least one bin
-        #  where the end_dt is less than 2 seconds from the split spoint.
+        #  where the end_dt is less than 2 seconds from the split point.
         if (start_dt - split_point_dt) < margin_td and \
-            (split_point_dt - end_dt) < margin_td:
+                (split_point_dt - end_dt) < margin_td:
             # Convert scantime to timestamps (i.e. seconds since 1970-01-01T00:00 UTC)
             scan_time = hdf['Scan Time']
             timestamps = (scan_time - scan_time[0]) + start_dt.timestamp()

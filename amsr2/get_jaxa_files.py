@@ -163,6 +163,7 @@ def get_date_string_from_filename(filename):
     if x:
         return x.group()
 
+
 def get_datetime_from_filename(filename):
     date_str = get_date_string_from_filename(filename)
 
@@ -370,7 +371,6 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
                 local_file_paths = local_file_paths[1:]
 
                 # Check the next file.
-                file_start_dt = get_datetime_from_filename(basename(local_file_paths[0]))
                 file_end_dt = get_observation_limit_from_file(local_file_paths[0], "End")
                 
             # Only split the file if is starts before the start of the bin.
@@ -433,7 +433,7 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
             new_filename_after = last_file.replace(date_str, b['end'].strftime(JAXA_DT_FORMAT))
 
             split_hdf_at_datetime(last_file, b['end'],
-                                output_filepaths=(new_filename_before, new_filename_after))
+                                  output_filepaths=(new_filename_before, new_filename_after))
 
             # Update the prev_bin file as it will be used in the next iteration
             # Note that it's not in the local_file_paths list.
@@ -505,16 +505,4 @@ def main():
 
 
 if __name__ == "__main__":
-    if False:
-        with FTP(JAXA_FTP) as ftp_con:
-            ftp_con.login(user=FTP_USERNAME, passwd=FTP_PASSWORD)
-
-            y_regex = "2019"
-            m_regex = "12"
-            list_of_files = jaxa_get_full_list_of_filepaths(ftp_con, FTP_DIR,
-                                                            year_regex=y_regex,
-                                                            month_regex=m_regex)
-
-        process_files(list_of_files, max_files=MAX_FILES)#, interval_hours=6)
-
     main()
