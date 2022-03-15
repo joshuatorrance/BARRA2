@@ -325,6 +325,8 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
         if not overwrite and exists(archive_dir):
             print("\tOutput directory already exists, skipping this bin.")
 
+            last_file_of_prev_bin = None
+
             continue
 
         # Generate the regexes for the bin
