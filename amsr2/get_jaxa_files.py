@@ -298,7 +298,8 @@ def process_files(ftp_file_paths, data_d=DATA_DIR,
         p.join()
 
 
-def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FTP_DIR):
+def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
+                               ftp_dir=FTP_DIR, overwrite=True):
     # Generate the bin dictionaries (list of {start_dt, end_dt, mid_dt})
     bins = get_bins(start_dt, end_dt)
 
@@ -313,6 +314,18 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
         # This likely includes a file whose name/timestamp is before
         # the bin window.
         print("Bin middle:", b['mid'])
+
+        # Archive/Output directory
+        archive_dir = join(output_dir,
+                           "{:04d}".format(b['mid'].year),
+                           "{:02d}".format(b['mid'].month),
+                           b['mid'].strftime(ARCHIVE_DT_FORMAT))
+
+        # If overwrite==False then check if the output dir already exists
+        if not overwrite and exists(archive_dir):
+            print("\tOutput directory already exists, skipping this bin.")
+
+            continue
 
         # Generate the regexes for the bin
         year_regex, month_regex, file_regex = \
@@ -427,12 +440,6 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
             # End of the last file is before the end of the bin.
             last_file_of_prev_bin = None
 
-        # Archive directory
-        archive_dir = join(output_dir,
-                           "{:04d}".format(b['mid'].year),
-                           "{:02d}".format(b['mid'].month),
-                           b['mid'].strftime(ARCHIVE_DT_FORMAT))
-
         # Organise the files into the archive
         # Bins are organised about the middle of the bin
         makedirs(archive_dir, exist_ok=True)
@@ -492,7 +499,7 @@ def main():
     output_dir = args.output_dir
 
     get_hdfs_between_datetimes(start_dt=start_dt, output_dir=output_dir,
-                               end_dt=end_dt, ftp_dir=ftp_dir)
+                               end_dt=end_dt, ftp_dir=ftp_dir, overwrite=False)
 
 
 if __name__ == "__main__":
