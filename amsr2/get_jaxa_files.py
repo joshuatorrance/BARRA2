@@ -299,9 +299,6 @@ def process_files(ftp_file_paths, data_d=DATA_DIR,
 
 
 def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FTP_DIR):
-    # TODO: Deal with bins with missing data
-    #  -partial bin missing (start or end)
-
     # Generate the bin dictionaries (list of {start_dt, end_dt, mid_dt})
     bins = get_bins(start_dt, end_dt)
 
@@ -379,7 +376,7 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
                     split_hdf_at_datetime(original_filepath, bin_edge_dt, output_filepaths=(None, new_file))
 
                     return new_file
-                    
+
                 try:
                     new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
                 except ValueError:
