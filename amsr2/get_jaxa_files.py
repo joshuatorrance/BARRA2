@@ -165,7 +165,7 @@ def get_date_string_from_filename(filename):
 def get_datetime_from_filename(filename):
     date_str = get_date_string_from_filename(filename)
 
-    return datetime.strptime(date_str, JAXA_DT_FORMAT)
+    return datetime.strptime(date_str + "+0000", JAXA_DT_FORMAT + "%z")
 
 
 def convert_hdf_to_bufr(in_file_path, out_file_path=None):
