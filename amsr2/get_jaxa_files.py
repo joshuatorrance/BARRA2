@@ -12,7 +12,8 @@ from datetime import datetime, timedelta, timezone
 from multiprocessing.dummy import Pool
 from functools import partial
 
-from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes, split_hdf_at_datetime
+from amsr2_util import get_bins, build_regexs_for_ftp_from_datetimes, \
+    split_hdf_at_datetime, get_observation_limit_from_file
 
 # PARAMETERS
 JAXA_FTP = 'ftp.gportal.jaxa.jp'
@@ -345,11 +346,28 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
 
             continue
 
+        # Get the last file of the previous bin
         if not last_file_of_prev_bin:
-            # Get the last file of the previous bin
-            file_dt = get_datetime_from_filename(basename(local_file_paths[0]))
-            if file_dt < b['start']:
+            # Ensure the end of the file is after the start of the bin
+            file_end_dt = get_observation_limit_from_file(local_file_paths[0], "End")
+            while file_end_dt < b['start']:
+                # File ends before the start of the bin, delete the file.
+                delete_file(local_file_paths[0])
+
+                # Remove it from the file list.
+                local_file_paths = local_file_paths[1:]
+
+                # Check the next file.
+                file_start_dt = get_datetime_from_filename(basename(local_file_paths[0]))
+                file_end_dt = get_observation_limit_from_file(local_file_paths[0], "End")
+                
+            # Only split the file if is starts before the start of the bin.
+            #   Use the filename for the start_dt as, at time of writing, the split
+            #   hdf methods do not update the hdf.attrs start/end labels.
+            file_start_dt = get_datetime_from_filename(basename(local_file_paths[0]))
+            if file_start_dt < b['start']:
                 # File begins before the start of the bin as expected.
+                # File ends after the start of the bin as expected.
                 last_file_of_prev_bin = local_file_paths[0]
 
                 def tidy_first_bin_edge(original_filepath, bin_edge_dt):
@@ -361,13 +379,16 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
                     split_hdf_at_datetime(original_filepath, bin_edge_dt, output_filepaths=(None, new_file))
 
                     return new_file
-
+                    
                 try:
                     new_filename = tidy_first_bin_edge(last_file_of_prev_bin, b['start'])
                 except ValueError:
                     # Sometimes there are two files in the hour before the start of the bin.
                     # This will generate a ValueError
                     # Delete the too-early file and remove it from the local file list
+
+                    # This shouldn't happen anymore, due to checking the start/end times.
+                    # TODO: Remove this portion.
                     delete_file(last_file_of_prev_bin)
                     local_file_paths = local_file_paths[1:]
 
@@ -390,17 +411,24 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
 
         # Split the last file across the bin end datetime
         last_file = local_file_paths[-1]
-        date_str = get_date_string_from_filename(basename(last_file))
+        
+        file_end_dt = get_observation_limit_from_file(last_file, "End")
+        if file_end_dt > b['end']:
+            # If the end of the last file is after the end of the bin then split it.
+            date_str = get_date_string_from_filename(basename(last_file))
 
-        new_filename_before = last_file
-        new_filename_after = last_file.replace(date_str, b['end'].strftime(JAXA_DT_FORMAT))
+            new_filename_before = last_file
+            new_filename_after = last_file.replace(date_str, b['end'].strftime(JAXA_DT_FORMAT))
 
-        split_hdf_at_datetime(last_file, b['end'],
-                              output_filepaths=(new_filename_before, new_filename_after))
+            split_hdf_at_datetime(last_file, b['end'],
+                                output_filepaths=(new_filename_before, new_filename_after))
 
-        # Update the prev_bin file as it will be used in the next iteration
-        # Note that it's not in the local_file_paths list.
-        last_file_of_prev_bin = new_filename_after
+            # Update the prev_bin file as it will be used in the next iteration
+            # Note that it's not in the local_file_paths list.
+            last_file_of_prev_bin = new_filename_after
+        else:
+            # End of the last file is before the end of the bin.
+            last_file_of_prev_bin = None
 
         # Archive directory
         archive_dir = join(output_dir,

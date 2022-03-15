@@ -119,6 +119,21 @@ def build_regexs_for_ftp_from_datetimes(start_dt, end_dt, prefix='GW1AM2_', incl
 
 
 # HDF Utils
+def get_observation_limit_from_file(file_path, limit):
+    with hdfFile(file_path, 'r') as hdf:
+        return get_observation_limit_from_hdf(hdf, limit)
+        
+
+def get_observation_limit_from_hdf(hdf, limit):
+    if limit!="Start" and limit!="End":
+        raise ValueError("Limit must be equal to \"Start\" or \"End\"")
+
+    field_string = "Observation{}DateTime".format(limit)
+
+    return datetime.fromisoformat(hdf.attrs[field_string][0]
+                                    .replace('Z', '+00:00'))
+
+
 def _get_split_index(hdf_filepath, split_point_dt,
                      margin_td=timedelta(seconds=3)):
     with hdfFile(hdf_filepath) as hdf:
