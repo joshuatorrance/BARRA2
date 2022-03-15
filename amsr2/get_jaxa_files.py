@@ -423,8 +423,7 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR, ftp_dir=FT
     if last_file_of_prev_bin:
         delete_file(last_file_of_prev_bin)
 
-    if exists(temp_dir):
-        rmdir(temp_dir)
+    rmdir(temp_dir)
 
 
 # MAIN SCRIPT
