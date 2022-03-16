@@ -331,7 +331,7 @@ class SondeBUFR:
 
     def t_bias(self, hour_index, sonde_txt, sonde_nc, nc_year_month_day_index):
         """
-        Replace temperature with bias-corrected temperature from nc
+        Replace temperature with bias-corrected temperature from netCDF file.
         """
         for txt_level_index in range(sonde_txt.n_levels):
             for nc_level_index in range(sonde_nc.n_levels):
@@ -348,11 +348,15 @@ class SondeBUFR:
                                                                  nc_year_month_day_index]))
                     break
 
-    def write_bufr_message(self, file_bufr, sonde_txt_obs, sonde_nc):
+    def write_bufr_message(self, file_bufr, sonde_txt_obs, sonde_nc=None):
         """
-        write out sonde for barra2
-        """
+        Write sonde data out to a .bufr file for barra2.
 
+        :param file_bufr: The file path to the .bufr file to be written to.
+        :param sonde_txt_obs: A SondeTXT containing the raw sonde data from IGRA.
+        :param sonde_nc: An optional SondeNC file to set the bias correction (leave as None if not available).
+        :return:
+        """
         ecc.codes_set(self.output_bufr, 'unpack', 1)
 
         century = floor(sonde_txt_obs.date_time.year / 100)
@@ -395,24 +399,27 @@ class SondeBUFR:
 
         # ecc.codes_set(self.b_temp, 'radiosondeType', t.sonde_type)
 
-        # check if bias-corrected temp is available
-        txt_year_month_day = 10000 * sonde_txt_obs.date_time.year + \
-            100 * sonde_txt_obs.date_time.month + \
-            sonde_txt_obs.date_time.day
+        # Check if bias-corrected temperature is available
+        if sonde_nc:
+            # Find matching datetimes
+            # Find the index where sonde_nc.year_month_day matches txt_year_month_day
+            txt_year_month_day = 10000 * sonde_txt_obs.date_time.year + \
+                100 * sonde_txt_obs.date_time.month + \
+                sonde_txt_obs.date_time.day
 
-        # Find the index where sonde_nc.year_month_day matches txt_year_month_day
-        year_month_day_index = np.where(sonde_nc.year_month_day == txt_year_month_day)[0]
-        if year_month_day_index.size > 0:
-            year_month_day_index = year_month_day_index[0]
-        else:
-            year_month_day_index = None
+            year_month_day_index = np.where(sonde_nc.year_month_day == txt_year_month_day)[0]
+            if year_month_day_index.size > 0:
+                year_month_day_index = year_month_day_index[0]
+            else:
+                year_month_day_index = None
 
-        # If a matching date has been found...
-        if year_month_day_index is not None:
-            # See if the hour matches the bias correction data
-            for hour_index in range(sonde_nc.n_hours):
-                if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, year_month_day_index]:
-                    self.t_bias(hour_index, sonde_txt_obs, sonde_nc, year_month_day_index)
+            # If a matching date has been found...
+            if year_month_day_index is not None:
+                # See if the hour matches the bias corrected data
+                for hour_index in range(sonde_nc.n_hours):
+                    if sonde_txt_obs.date_time.hour == sonde_nc.hours[hour_index, year_month_day_index]:
+                        # Then set the bias
+                        self.t_bias(hour_index, sonde_txt_obs, sonde_nc, year_month_day_index)
 
         # Avoid unpacking self.output_bufr the next time
         ecc.codes_set(self.output_bufr, 'pack', 1)

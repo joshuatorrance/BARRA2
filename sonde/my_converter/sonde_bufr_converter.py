@@ -33,9 +33,15 @@ def parse_args():
 
     parser.add_argument("-i", "--input",
                         required=True,
-                        nargs=2,
-                        help="File paths for the two input files, the first "
-                             "a .txt and the second a .nc.")
+                        nargs="?",
+                        help="File path for the input file, a .txt containing "
+                             "the raw sonde data from IGRA.")
+
+    parser.add_argument("-b", "--bias",
+                        required=False,
+                        nargs="?",
+                        help="File path to the optional netCDF file (.nc) that "
+                             "contains the bias correction.")
 
     parser.add_argument("-t", "--template",
                         required=True,
@@ -60,18 +66,22 @@ def main():
     if args.verbose:
         loggingConfig(level="DEBUG")
 
-    path_input_txt = args.input[0]
-    path_input_nc = args.input[1]
+    path_input_txt = args.input
+    path_input_nc = args.bias
     path_template_bufr = args.template
     path_output_bufr = args.output
 
-    info("Input files: {}, {}".format(path_input_txt, path_input_nc))
+    info("Input file: {}".format(path_input_txt))
+    info("Bias file: {}".format(path_input_nc))
     info("BUFR Template file: {}".format(path_template_bufr))
     info("Output file: {}".format(path_output_bufr))
 
-    # Load the data in the .nc file
-    sonde_nc = SondeNC()
-    sonde_nc.read(path_input_nc)
+    if path_input_nc:
+        # Load the data in the .nc file
+        sonde_nc = SondeNC()
+        sonde_nc.read(path_input_nc)
+    else:
+        sonde_nc = None
 
     sonde_txt = SondeTXT()
     with open(path_input_txt, 'r') as file_txt:
