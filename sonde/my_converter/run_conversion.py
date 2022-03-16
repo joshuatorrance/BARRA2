@@ -106,38 +106,35 @@ def main():
         with ZipFile(f_zip, 'r') as z:
             z.extractall(TEMP_DIR)
 
-        # There should only be one file
+        # There can be multiple files in the zip.
         txt_files = glob(join(TEMP_DIR, "*" + SONDE_TXT_EXTENSION))
 
-        if len(txt_files) > 1:
-            raise IOError("Unexpected number of files in zip, {}.\n"
-                          "Files: {}".format(f_zip, txt_files))
+        for txt_file in txt_files:
+            print("Processing", basename(txt_file))
 
-        txt_file = txt_files[0]
+            # Check if the output file already exists.
+            file_name_sans_extension, _ = splitext(basename(f_zip))
+            output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
 
-        # Check if the output file already exists.
-        file_name_sans_extension, _ = splitext(basename(f_zip))
-        output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
+            if exists(output_file):
+                print("Output file already exists, skipping...")
+            else:
+                # Get the station code from the filename
+                station_code = basename(str(txt_file))[:11]
 
-        if exists(output_file):
-            print("Output file already exists, skipping...")
-        else:
-            # Get the station code from the filename
-            station_code = basename(str(txt_file))[:11]
+                # Determine the matching station name
+                station_name = get_station_name_from_code(station_code)
 
-            # Determine the matching station name
-            station_name = get_station_name_from_code(station_code)
+                # Is there a bias for this station?
+                bias_path = None
+                for b in biases:
+                    if b['station name'] == station_name:
+                        bias_path = b['path']
+                        break
 
-            # Is there a bias for this station?
-            bias_path = None
-            for b in biases:
-                if b['station name'] == station_name:
-                    bias_path = b['path']
-                    break
-
-            # We now know the filename for the raw sonde data and for
-            #   the bias correction (if it exists)
-            do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
+                # We now know the filename for the raw sonde data and for
+                #   the bias correction (if it exists)
+                do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
 
         # Delete everything in the temp directory
         for f in glob(join(TEMP_DIR, '*')):
