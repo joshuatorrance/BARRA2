@@ -99,6 +99,11 @@ def main():
     sonde_txt_zip_files = glob(join(SONDE_TXT_INPUT_DIR,
                                     "*" + SONDE_TXT_ZIP_EXTENSION))
 
+    # Input dir has some other files too.
+    files_to_ignore = glob(join(SONDE_TXT_INPUT_DIR, "igra2-*.txt.zip"))
+    for f in files_to_ignore:
+        sonde_txt_zip_files.remove(f)
+
     for f_zip in sonde_txt_zip_files:
         print(basename(f_zip))
 
