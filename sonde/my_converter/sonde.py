@@ -101,13 +101,16 @@ class SondeObservation:
         station_id = line[1:12]
         if station_id[2] == 'M':
             #  M = WMO identification number (last five characters of the IGRA 2 ID)
-            self.wmo_station_block_number = int(line[7:9])
             self.wmo_station_block_number = int(station_id[6:8])
-            self.wmo_station_number = int(line[9:12])
             self.wmo_station_number = int(station_id[8:11])
         else:
-            raise ValueError("Unhandled station ID type, {}, for station ID: {}"
-                             .format(station_id[2], station_id))
+            # TODO: Figure out how to handle other station ID types.
+            # Print a warning and leave the variables blank
+            print("Unhandled station ID type, {}, for station ID: {}"
+                  .format(station_id[2], station_id))
+
+            #raise ValueError("Unhandled station ID type, {}, for station ID: {}"
+            #                 .format(station_id[2], station_id))
 
         self.date_time = datetime(year=int(line[13:17]),
                                   month=int(line[18:20]),
@@ -374,8 +377,12 @@ class SondeBUFR:
         ecc.codes_set_array(self.output_bufr, 'unexpandedDescriptors', SondeBUFR.TEMPLATE_SEQ)
 
         # ecc.codes_set(self.b_temp, 'shipOrMobileLandStationIdentifier', 'ASM000')
-        ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
-        ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
+
+        # Only set the station IDs if they're known.
+        if sonde_txt_obs.wmo_station_block_number:
+            ecc.codes_set(self.output_bufr, 'blockNumber', sonde_txt_obs.wmo_station_block_number)
+        if sonde_txt_obs.wmo_station_number:
+            ecc.codes_set(self.output_bufr, 'stationNumber', sonde_txt_obs.wmo_station_number)
 
         ecc.codes_set(self.output_bufr, 'year', sonde_txt_obs.date_time.year)
         ecc.codes_set(self.output_bufr, 'month', sonde_txt_obs.date_time.month)
