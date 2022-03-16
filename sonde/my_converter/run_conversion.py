@@ -159,9 +159,6 @@ def main():
         f = partial(_process_zip, biases=biases)
         pool.map(f, sonde_txt_zip_files)
 
-        # Test with one file to begin with
-        break
-
     # Delete the temp directory
     if exists(TEMP_DIR):
         rmdir(TEMP_DIR)
