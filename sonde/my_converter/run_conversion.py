@@ -16,10 +16,15 @@ from zipfile import ZipFile
 from subprocess import run
 from netCDF4 import Dataset
 from datetime import datetime
+from multiprocessing.dummy import Pool
+from functools import partial
 
 from sonde_bufr_converter import do_conversion
 
 # PARAMETERS
+# Multiprocessing
+N_CPU = 2
+
 # IGRA Data Details
 IGRA_FILE_DIR = "/g/data/hd50/barra2/data/obs/igra"
 
@@ -150,8 +155,9 @@ def main():
     for f in files_to_ignore:
         sonde_txt_zip_files.remove(f)
 
-    for f_zip in sonde_txt_zip_files:
-        _process_zip(f_zip, biases)
+    with Pool(N_CPU) as pool:
+        f = partial(_process_zip, biases=biases)
+        pool.map(f, sonde_txt_zip_files)
 
     # Delete the temp directory
     if exists(TEMP_DIR):
