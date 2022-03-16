@@ -11,7 +11,7 @@
 # IMPORTS
 from glob import glob
 from os import remove as delete_file, rmdir
-from os.path import join, basename, exists
+from os.path import join, basename, exists, splitext
 from zipfile import ZipFile
 from subprocess import run
 from netCDF4 import Dataset
@@ -41,7 +41,12 @@ SONDE_NC_INPUT_DIR = join(ERA5_FILE_DIR, "ERA5_v7")
 SONDE_NC_EXTENSION = ".nc"
 
 # Output directory
+BUFR_EXTENSION = ".bufr"
 OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/igra/bias-corrected"
+
+# Binning Script - Courtesy of Chun-Hsu
+# Takes a directory with .bufr files in it and splits them into 6 hours bins.
+BINNING_SCRIPT = "/g/data/hd50/chs548/barra2_shared_dev/bufr/organise_bufr.py"
 
 
 # FUNCTIONS
@@ -83,8 +88,6 @@ def get_station_name_from_code(station_code,
 
 # SCRIPT
 def main():
-    # TODO: Handle binning
-
     # Build a dictionary of bias correction files with their station names.
     biases = get_bias_correction_stations(SONDE_NC_INPUT_DIR)
 
@@ -94,9 +97,6 @@ def main():
 
     for f_zip in sonde_txt_zip_files:
         print(basename(f_zip))
-
-        # First check if the output file already exists.
-        # TODO: Check if output already exists.
 
         # Unpack the zip
         with ZipFile(f_zip, 'r') as z:
@@ -111,27 +111,33 @@ def main():
 
         txt_file = txt_files[0]
 
-        # Get the station code from the filename
-        station_code = basename(str(txt_file))[:11]
+        # Check if the output file already exists.
+        file_name_sans_extension, _ = splitext(basename(f_zip))
+        output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
 
-        # Determine the matching station name
-        station_name = get_station_name_from_code(station_code)
+        if exists(output_file):
+            print("Output file already exists, skipping...")
+        else:
+            # Get the station code from the filename
+            station_code = basename(str(txt_file))[:11]
 
-        # Is there a bias for this station?
-        bias = None
-        for b in biases:
-            if b['station name'] == station_name:
-                bias = b
-                break
+            # Determine the matching station name
+            station_name = get_station_name_from_code(station_code)
 
-        # We now know the filename for the raw sonde data and for
-        #   the bias correction (if it exists)
-        # TODO: Run the conversion script here.
+            # Is there a bias for this station?
+            bias = None
+            for b in biases:
+                if b['station name'] == station_name:
+                    bias = b
+                    break
+
+            # We now know the filename for the raw sonde data and for
+            #   the bias correction (if it exists)
+            # TODO: Run the conversion script here.
 
         # Delete everything in the temp directory
         for f in glob(TEMP_DIR + '*'):
             delete_file(f)
-        break
 
     # Delete the temp directory
     if exists(TEMP_DIR):
