@@ -74,65 +74,71 @@ def get_bias_correction_stations(bias_directory,
 def get_station_name_from_code(station_code,
                                station_list_file=IGRA_STATION_LIST_PATH):
     # Get the name of the station matching the station code
-    result = grep(IGRA_STATION_LIST_PATH, station_code)
+    result = grep(station_list_file, station_code)
     if result == '':
-        raise ArgumentError("Station code ({}) not found.".format(station_code))
+        raise ValueError("Station code ({}) not found.".format(station_code))
     else:
         return str(result[41:71].strip())
  
 
 # SCRIPT
-# Build a dictionary of bias correction files with their station names.
-biases = get_bias_correction_stations(SONDE_NC_INPUT_DIR)
+def main():
+    # TODO: Handle binning
 
-# Raw data/txt files are compressed into single-file zips
-sonde_txt_zip_files = glob(join(SONDE_TXT_INPUT_DIR,
-                            "*" + SONDE_TXT_ZIP_EXTENSION))
+    # Build a dictionary of bias correction files with their station names.
+    biases = get_bias_correction_stations(SONDE_NC_INPUT_DIR)
+
+    # Raw data/txt files are compressed into single-file zips
+    sonde_txt_zip_files = glob(join(SONDE_TXT_INPUT_DIR,
+                                    "*" + SONDE_TXT_ZIP_EXTENSION))
+
+    for f_zip in sonde_txt_zip_files:
+        print(basename(f_zip))
+
+        # First check if the output file already exists.
+        # TODO: Check if output already exists.
+
+        # Unpack the zip
+        with ZipFile(f_zip, 'r') as z:
+            z.extractall(TEMP_DIR)
+
+        # There should only be one file
+        txt_files = glob(join(TEMP_DIR, "*" + SONDE_TXT_EXTENSION))
+
+        if len(txt_files) > 1:
+            raise IOError("Unexpected number of files in zip, {}.\n"
+                          "Files: {}".format(f_zip, txt_files))
+
+        txt_file = txt_files[0]
+
+        # Get the station code from the filename
+        station_code = basename(str(txt_file))[:11]
+
+        # Determine the matching station name
+        station_name = get_station_name_from_code(station_code)
+
+        # Is there a bias for this station?
+        bias = None
+        for b in biases:
+            if b['station name'] == station_name:
+                bias = b
+                break
+
+        # We now know the filename for the raw sonde data and for
+        #   the bias correction (if it exists)
+        # TODO: Run the conversion script here.
+
+        # Delete everything in the temp directory
+        for f in glob(TEMP_DIR + '*'):
+            delete_file(f)
+        break
+
+    # Delete the temp directory
+    if exists(TEMP_DIR):
+        rmdir(TEMP_DIR)
+
+    print("Script finished at", datetime.now())
 
 
-for f_zip in sonde_txt_zip_files:
-    print(basename(f_zip))
-
-    # First check if the output file already exists.
-    # TODO: Check if output already exists.
-
-    # Unpack the zip
-    with ZipFile(f_zip, 'r') as z:
-        z.extractall(TEMP_DIR)
-
-    # There should only be one file
-    txt_files = glob(join(TEMP_DIR, "*" + SONDE_TXT_EXTENSION))
-
-    if len(txt_files)>1:
-        raise IOError("Unexpected number of files in zip, {}.\n"
-                      "Files: {}".format(f_zip, txt_files))
-
-    txt_file = txt_files[0]
-
-    # Get the station code from the filename
-    station_code = basename(str(txt_file))[:11]
-
-    # Determine the matching station name
-    station_name = get_station_name_from_code(station_code)
-
-    # Is there a bias for this station?
-    bias = None
-    for b in biases:
-        if b['station name'] == station_name:
-            bias = b
-            break
-
-    # We now know the filename for the raw sonde data and for
-    #   the bias correction (if it exists)
-    # TODO: Run the conversion script here.
-
-    # Delete everything in the temp directory
-    for f in glob(TEMP_DIR + '*'):
-        delete_file(f)
-    break
-
-# Delete the temp directory
-if exists(TEMP_DIR):
-    rmdir(TEMP_DIR)
-
-print("Script finished at", datetime.now())
+if __name__ == "__main__":
+    main()
