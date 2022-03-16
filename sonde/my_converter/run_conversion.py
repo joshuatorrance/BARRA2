@@ -16,10 +16,15 @@ from zipfile import ZipFile
 from subprocess import run
 from netCDF4 import Dataset
 from datetime import datetime
+from multiprocessing.dummy import Pool
+from functools import partial
 
 from sonde_bufr_converter import do_conversion
 
 # PARAMETERS
+# Multiprocessing
+N_CPU = 2
+
 # IGRA Data Details
 IGRA_FILE_DIR = "/g/data/hd50/barra2/data/obs/igra"
 
@@ -88,7 +93,53 @@ def get_station_name_from_code(station_code,
         raise ValueError("Station code ({}) not found.".format(station_code))
     else:
         return str(result[41:71].strip())
- 
+
+
+def _process_zip(f_zip, biases):
+    print(basename(f_zip))
+
+    # Unpack the zip
+    zip_dir = join(TEMP_DIR, basename(f_zip))
+    with ZipFile(f_zip, 'r') as z:
+        z.extractall(zip_dir)
+
+    # There can be multiple files in the zip.
+    txt_files = glob(join(zip_dir, "*" + SONDE_TXT_EXTENSION))
+    for txt_file in txt_files:
+        print("Processing", basename(txt_file))
+
+        # Check if the output file already exists.
+        file_name_sans_extension, _ = splitext(basename(f_zip))
+        output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
+
+        if exists(output_file):
+            print("Output file already exists, skipping...")
+        else:
+            # Get the station code from the filename
+            station_code = basename(str(txt_file))[:11]
+
+            # Determine the matching station name
+            station_name = get_station_name_from_code(station_code)
+
+            # Is there a bias for this station?
+            bias_path = None
+            for b in biases:
+                if b['station name'] == station_name:
+                    bias_path = b['path']
+                    break
+
+            # We now know the filename for the raw sonde data and for
+            #   the bias correction (if it exists)
+            do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
+
+    # Delete everything in the temp directory
+    for f in glob(join(zip_dir, '*')):
+        delete_file(f)
+
+    # Delete the temp directory
+    if exists(zip_dir):
+        rmdir(zip_dir)
+
 
 # SCRIPT
 def main():
@@ -104,46 +155,9 @@ def main():
     for f in files_to_ignore:
         sonde_txt_zip_files.remove(f)
 
-    for f_zip in sonde_txt_zip_files:
-        print(basename(f_zip))
-
-        # Unpack the zip
-        with ZipFile(f_zip, 'r') as z:
-            z.extractall(TEMP_DIR)
-
-        # There can be multiple files in the zip.
-        txt_files = glob(join(TEMP_DIR, "*" + SONDE_TXT_EXTENSION))
-
-        for txt_file in txt_files:
-            print("Processing", basename(txt_file))
-
-            # Check if the output file already exists.
-            file_name_sans_extension, _ = splitext(basename(f_zip))
-            output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
-
-            if exists(output_file):
-                print("Output file already exists, skipping...")
-            else:
-                # Get the station code from the filename
-                station_code = basename(str(txt_file))[:11]
-
-                # Determine the matching station name
-                station_name = get_station_name_from_code(station_code)
-
-                # Is there a bias for this station?
-                bias_path = None
-                for b in biases:
-                    if b['station name'] == station_name:
-                        bias_path = b['path']
-                        break
-
-                # We now know the filename for the raw sonde data and for
-                #   the bias correction (if it exists)
-                do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
-
-        # Delete everything in the temp directory
-        for f in glob(join(TEMP_DIR, '*')):
-            delete_file(f)
+    with Pool(N_CPU) as pool:
+        f = partial(_process_zip, biases=biases)
+        pool.map(f, sonde_txt_zip_files)
 
         # Test with one file to begin with
         break
