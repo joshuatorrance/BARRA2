@@ -109,13 +109,25 @@ class SondeObservation:
             print("Unhandled station ID type, {}, for station ID: {}"
                   .format(station_id[2], station_id))
 
-            #raise ValueError("Unhandled station ID type, {}, for station ID: {}"
+            # raise ValueError("Unhandled station ID type, {}, for station ID: {}"
             #                 .format(station_id[2], station_id))
 
-        self.date_time = datetime(year=int(line[13:17]),
-                                  month=int(line[18:20]),
-                                  day=int(line[21:23]),
-                                  hour=int(line[24:26]),
+        year = int(line[13:17])
+        month = int(line[18:20])
+        day = int(line[21:23])
+
+        # HOUR can be 99, i.e. missing, HHmm (RELTIME in the docs) is often
+        # missing too.
+        hour = int(line[24:26])
+
+        hhmm = line[27:31]
+        if hour == 99 and hhmm != "9999":
+            hour = int(hhmm[0:2])
+
+        self.date_time = datetime(year=year,
+                                  month=month,
+                                  day=day,
+                                  hour=hour,
                                   tzinfo=timezone.utc)
 
         self.n_levels = int(line[32:36])
