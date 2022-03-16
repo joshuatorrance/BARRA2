@@ -76,19 +76,27 @@ def main():
     info("BUFR Template file: {}".format(path_template_bufr))
     info("Output file: {}".format(path_output_bufr))
 
+    do_conversion(path_input_nc, path_input_txt, path_output_bufr, path_template_bufr)
+
+
+def do_conversion(path_input_txt, path_input_nc, path_output_bufr, path_template_bufr):
+    """
+    :param path_input_txt: The input .txt file for the raw sonde data.
+    :param path_input_nc: The optional input .nc file for the bias correction.
+    :param path_output_bufr: The output bufr file
+    :param path_template_bufr: The template bufr file.
+    :return:
+    """
     if path_input_nc:
         # Load the data in the .nc file
         sonde_nc = SondeNC()
         sonde_nc.read(path_input_nc)
     else:
         sonde_nc = None
-
     sonde_txt = SondeTXT()
     with open(path_input_txt, 'r') as file_txt:
         sonde_txt.read(file_txt)
-
     with open(path_output_bufr, 'wb') as file_bufr:
-        # TODO: This "write bufr file" loop should be abstracted
         for obs in sonde_txt.observations:
             sonde_bufr = SondeBUFR(path_template_bufr, obs.n_levels)
 
