@@ -129,18 +129,18 @@ def main():
             station_name = get_station_name_from_code(station_code)
 
             # Is there a bias for this station?
-            bias = None
+            bias_path = None
             for b in biases:
                 if b['station name'] == station_name:
-                    bias = b
+                    bias_path = b['path']
                     break
 
             # We now know the filename for the raw sonde data and for
             #   the bias correction (if it exists)
-            do_conversion(txt_file, bias['path'], output_file, TEMPLATE_BUFR)
+            do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
 
         # Delete everything in the temp directory
-        for f in glob(TEMP_DIR + '*'):
+        for f in glob(join(TEMP_DIR, '*')):
             delete_file(f)
 
     # Delete the temp directory
