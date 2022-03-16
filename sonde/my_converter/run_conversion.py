@@ -17,6 +17,7 @@ from subprocess import run
 from netCDF4 import Dataset
 from datetime import datetime
 
+from sonde_bufr_converter import do_conversion
 
 # PARAMETERS
 # IGRA Data Details
@@ -39,6 +40,9 @@ ERA5_FILE_DIR = "/g/data/hd50/barra2/data/obs/raobcore"
 # ERA5 netCDFs are the bias corrected data.
 SONDE_NC_INPUT_DIR = join(ERA5_FILE_DIR, "ERA5_v7")
 SONDE_NC_EXTENSION = ".nc"
+
+# Template .bufr file, used to create new .bufrs
+TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/sonde/data/temp.bufr"
 
 # Output directory
 BUFR_EXTENSION = ".bufr"
@@ -133,7 +137,7 @@ def main():
 
             # We now know the filename for the raw sonde data and for
             #   the bias correction (if it exists)
-            # TODO: Run the conversion script here.
+            do_conversion(txt_file, bias['path'], output_file, TEMPLATE_BUFR)
 
         # Delete everything in the temp directory
         for f in glob(TEMP_DIR + '*'):
