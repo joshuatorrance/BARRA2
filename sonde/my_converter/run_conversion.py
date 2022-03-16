@@ -46,7 +46,7 @@ TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/sonde/data/temp.bufr"
 
 # Output directory
 BUFR_EXTENSION = ".bufr"
-OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/igra/bias-corrected"
+OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/igra/data-bufr"
 
 # Binning Script - Courtesy of Chun-Hsu
 # Takes a directory with .bufr files in it and splits them into 6 hours bins.
@@ -144,6 +144,9 @@ def main():
         # Delete everything in the temp directory
         for f in glob(join(TEMP_DIR, '*')):
             delete_file(f)
+
+        # Test with one file to begin with
+        break
 
     # Delete the temp directory
     if exists(TEMP_DIR):
