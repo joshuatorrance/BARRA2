@@ -113,7 +113,8 @@ def _process_zip(f_zip, biases):
         output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
 
         if exists(output_file):
-            print("Output file already exists, skipping...")
+            print("Output file ({}) already exists, skipping..."
+                  .format(basename(output_file)))
         else:
             # Get the station code from the filename
             station_code = basename(str(txt_file))[:11]
