@@ -9,21 +9,23 @@
 # Author: Joshua Torrance (joshua.torrance@bom.gov.au)
 
 # IMPORTS
+from sys import argv
 from glob import glob
 from os import remove as delete_file, rmdir
 from os.path import join, basename, exists, splitext
+from shutil import move
 from zipfile import ZipFile
 from subprocess import run
 from netCDF4 import Dataset
 from datetime import datetime
-from multiprocessing.dummy import Pool
+from multiprocessing.pool import Pool
 from functools import partial
 
 from sonde_bufr_converter import do_conversion
 
 # PARAMETERS
 # Multiprocessing
-N_CPU = 2
+N_CPU = 1
 
 # IGRA Data Details
 IGRA_FILE_DIR = "/g/data/hd50/barra2/data/obs/igra"
@@ -36,8 +38,8 @@ SONDE_TXT_ZIP_EXTENSION = ".zip"
 SONDE_TXT_EXTENSION = ".txt"
 
 # A temporary directory to unpack the zips into
-# Just use the working dir/temp for now
-TEMP_DIR = "temp"
+# Temp file can be on scratch
+TEMP_DIR = "/scratch/hd50/jt4085/sonde/temp"
 
 # raobcore/ERA5 Details
 ERA5_FILE_DIR = "/g/data/hd50/barra2/data/obs/raobcore"
@@ -51,7 +53,7 @@ TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/sonde/data/temp.bufr"
 
 # Output directory
 BUFR_EXTENSION = ".bufr"
-OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/igra/data-bufr"
+OUTPUT_DIR = "/scratch/hd50/jt4085/sonde/data-bufr"
 
 # Binning Script - Courtesy of Chun-Hsu
 # Takes a directory with .bufr files in it and splits them into 6 hours bins.
@@ -110,7 +112,8 @@ def _process_zip(f_zip, biases):
 
         # Check if the output file already exists.
         file_name_sans_extension, _ = splitext(basename(f_zip))
-        output_file = join(OUTPUT_DIR, file_name_sans_extension + BUFR_EXTENSION)
+        output_file_name = file_name_sans_extension + BUFR_EXTENSION
+        output_file = join(OUTPUT_DIR, output_file_name)
 
         if exists(output_file):
             print("Output file ({}) already exists, skipping..."
@@ -131,7 +134,12 @@ def _process_zip(f_zip, biases):
 
             # We now know the filename for the raw sonde data and for
             #   the bias correction (if it exists)
-            do_conversion(txt_file, bias_path, output_file, TEMPLATE_BUFR)
+            # Output to the temp directory
+            temp_output_file = join(zip_dir, output_file_name)
+            do_conversion(txt_file, bias_path, temp_output_file, TEMPLATE_BUFR)
+
+            # With conversion complete move to the output path
+            move(temp_output_file, output_file)
 
     # Delete everything in the temp directory
     for f in glob(join(zip_dir, '*')):
@@ -144,6 +152,11 @@ def _process_zip(f_zip, biases):
 
 # SCRIPT
 def main():
+    # Multiprocessing hax
+    # Take command line arg to indicate which process this is
+    num_processes = 10
+    process_n = int(argv[1])
+
     # Build a dictionary of bias correction files with their station names.
     biases = get_bias_correction_stations(SONDE_NC_INPUT_DIR)
 
@@ -156,7 +169,15 @@ def main():
     for f in files_to_ignore:
         sonde_txt_zip_files.remove(f)
 
-    with Pool(N_CPU) as pool:
+    # Separate the list into chunks based on command line arg
+    list_len = len(sonde_txt_zip_files)
+    from math import ceil
+    chunk_size = ceil(list_len / num_processes)
+    start = process_n * chunk_size
+    end = start + chunk_size
+    sonde_txt_zip_files = sonde_txt_zip_files[start:end]
+
+    with Pool(N_CPU, maxtasksperchild=1) as pool:
         f = partial(_process_zip, biases=biases)
         pool.map(f, sonde_txt_zip_files)
 
