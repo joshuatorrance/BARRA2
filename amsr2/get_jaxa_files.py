@@ -370,6 +370,10 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
                 # Remove it from the file list.
                 local_file_paths = local_file_paths[1:]
 
+                # Check that there are still files in the list...
+                if len(local_file_paths) == 0:
+                    continue
+
                 # Check the next file.
                 file_end_dt = get_observation_limit_from_file(local_file_paths[0], "End")
                 
