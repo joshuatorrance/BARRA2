@@ -28,6 +28,23 @@ SAMPLE_TEMPLATE = "BUFR3_local_satellite"
 # Length to separate the data into
 BUFR_MESSAGE_LEN = 128
 
+# Bufr Sequence
+UNEXPANDED_DESCRIPTORS = [
+#      1007,  # Satellite identifier
+#      2153,  # Satellite channel centre frequency
+#      2154,  # Satellite channel band width
+    109128,  # Replicate 9 descriptors 128 times
+    301011,  # Year, month, day
+    301013,  # Hour, minute, second
+    301021,  # Latitude and longitude
+      7004,  # Pressure
+    222000,  # Quality information follows
+     11001,  # Wind direction
+    222000,  # Quality information follows
+     11002,  # Wind speed
+      7024,  # Satellite zenith angle
+]
+
 # Satellite IDs
 #  https://confluence.ecmwf.int/display/ECC/WMO%3D2+code-flag+table#WMO=2codeflagtable-CF_001007
 SATELLITE_IDS = {"GMS-5": 152,
