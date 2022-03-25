@@ -11,7 +11,7 @@
 
 # IMPORTS
 from math import floor, sqrt
-from numpy import sqrt, atan
+from numpy import sqrt, arctan
 from scipy.constants import c
 from datetime import datetime, timezone
 import eccodes as ecc
@@ -176,7 +176,7 @@ def set_arrays_for_dataframe(dataframe, output_bufr):
     v = dataframe['v (m/s)']
 
     wind_speed = sqrt(u ** 2 + v ** 2)
-    wind_direction = 270 - atan(v / u)
+    wind_direction = 270 - arctan(v / u)
 
     # TODO: do we need to_numpy here? already ndarrays?
     ecc.codes_set_double_array(output_bufr,
