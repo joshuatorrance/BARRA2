@@ -301,6 +301,8 @@ def main():
     satellite_filter = args.satellite
     channel_filter = args.channel
 
+    output_filepath = args.output
+
     if satellite_filter == "all":
         satellite_list = SATELLITE_NAMES
     else:
@@ -316,7 +318,7 @@ def main():
         for chan in channel_list:
             data = get_wind_data(sat, chan, start_dt, end_dt)
 
-            data_to_bufr(data, "data/test_out.bufr", sat, chan)
+            data_to_bufr(data, output_filepath, sat, chan)
 
 
 if __name__ == "__main__":
