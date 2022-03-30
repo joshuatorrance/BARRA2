@@ -104,6 +104,11 @@ def get_wind_data(platform, channel, tstart, tend):
         df['time(mjd)'] = time
         # truncate df based on time window
         itime = np.where(np.greater_equal(time, tstart) & np.less_equal(time, tend))[0]
+
+        # EDIT by JT: check itime has elements
+        if len(itime) == 0:
+            continue
+
         if itime[0] > 0:
             df = df.truncate(before=itime[0])
         if itime[-1] < len(time)-1:
