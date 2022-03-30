@@ -103,10 +103,9 @@ SATELLITES = {"GMS-5": {
             }
 
 # METHODS
-def data_to_bufr(data, output_filepath,
+def data_to_bufr(data, output_file,
                  satellite_name, channel_name,
                  template_filepath=TEMPLATE_BUFR):
-    with open(output_filepath, 'wb') as f:
         for key in data:
             # Potentially multiple datasets per data
             # They'll be written as serial messages
@@ -185,7 +184,7 @@ def data_to_bufr(data, output_filepath,
                 # Finish the file
                 ecc.codes_set(output_bufr, 'pack', 1)
 
-                ecc.codes_write(output_bufr, f)
+                ecc.codes_write(output_bufr, output_file)
 
                 ecc.codes_release(output_bufr)
 
@@ -308,17 +307,20 @@ def main():
     else:
         satellite_list = [satellite_filter]
     
-
     if channel_filter == "all":
         channel_list = CHANNEL_NAMES
     else:
         channel_list = [channel_filter]
 
-    for sat in satellite_list:
-        for chan in channel_list:
-            data = get_wind_data(sat, chan, start_dt, end_dt)
+    with open(output_filepath, 'wb') as f:
+        for sat in satellite_list:
+            for chan in channel_list:
+                data = get_wind_data(sat, chan, start_dt, end_dt)
 
-            data_to_bufr(data, output_filepath, sat, chan)
+                print(data)
+
+                if len(data)>0:
+                    data_to_bufr(data, f, sat, chan)
 
 
 if __name__ == "__main__":
