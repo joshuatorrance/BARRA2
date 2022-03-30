@@ -295,8 +295,6 @@ def parse_args():
 def main():
     args = parse_args()
 
-    #start_dt = datetime(2010, 7, 30, 21)
-    #end_dt = datetime(2010, 7, 31, 3)
     start_dt = args.start
     end_dt = args.end
 
