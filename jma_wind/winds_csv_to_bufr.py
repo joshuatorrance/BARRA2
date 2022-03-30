@@ -10,6 +10,7 @@
 # Author: Joshua Torrance
 
 # IMPORTS
+from argparse import ArgumentParser
 from math import floor, sqrt
 from numpy import sqrt, arctan2, degrees
 from scipy.constants import c
@@ -19,6 +20,9 @@ import eccodes as ecc
 from jma_interface import get_wind_data
 
 # PARAMETERS
+# Commandline arg datetime format
+COMMANDLINE_DT_FORMAT = "%Y%m%dT%H%M"
+
 # Template to build the bufrs from.
 TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/jma_wind/data/met8.bufr"
 
@@ -61,6 +65,10 @@ DATA_PRESENT_BITMAP = [
 # Satellites
 #  https://confluence.ecmwf.int/display/ECC/WMO%3D2+code-flag+table#WMO=2codeflagtable-CF_001007
 #  centre is the central wavelength in microns, bandwidth is also in microns
+# TODO: jma_interface is only implemented for MTSAT-2 and MTSAT-1R at the moment.
+#SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
+SATELLITE_NAMES = ["MTSAT-1R", "MTSAT-2"]
+CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
 SATELLITES = {"GMS-5": {
                 "id": 152,
                 "VIS": {"centre": 0.72, "bandwidth": 0.35},
@@ -239,14 +247,78 @@ def set_arrays_for_dataframe(dataframe, output_bufr):
 
 
 # SCRIPT
+def parse_args():
+    def valid_date(s):
+        try:
+            # Parse the input string
+            # These timezones are timezone naive to match
+            #   those in jma_interface.
+            #return datetime.strptime(s + "+0000", COMMANDLINE_DT_FORMAT + "%z")
+            return datetime.strptime(s, COMMANDLINE_DT_FORMAT)
+        except ValueError:
+            msg = "not a valid date: {0!r}".format(s)
+            raise ArgumentTypeError(msg)
+
+    parser = ArgumentParser(prog="JMA Winds - CSV to BUFR",
+                            description="This script converts JMA Winds data"
+                                        " from CSVs to BUFRs.\n"
+                                        "Author: Joshua Torrance")
+
+    parser.add_argument("-s", "--start",
+                        nargs="?", required=True, type=valid_date,
+                        help="Start UTC datetime to grab data for. Will be "
+                             "aligned to the bin edge before it. "
+                             "Use the format " + COMMANDLINE_DT_FORMAT)
+    parser.add_argument("-e", "--end",
+                        nargs="?", required=True, type=valid_date,
+                        help="End UTC datetime to grab data for. Will be "
+                             "aligned to the bin edge after it. "
+                             "Use the format " + COMMANDLINE_DT_FORMAT)
+
+    parser.add_argument("-c", "--channel",
+                        nargs="?", required=False, default="all",
+                        choices=CHANNEL_NAMES + ["all"],
+                        help="Name of the channel to filter on or \"all\".")
+
+    parser.add_argument("--satellite",
+                        nargs="?", required=False, default="all",
+                        choices=SATELLITE_NAMES + ["all"],
+                        help="Name of the satellite to filter on or \"all\".")
+
+    parser.add_argument("-o", "--output",
+                        nargs="?", required=True,
+                        help="Output file path.")
+
+    return parser.parse_args()
+
+
 def main():
-    # These timezones are timezone naive to match those in jma_interface.
-    start_dt = datetime(2010, 7, 30, 21)
-    end_dt = datetime(2010, 7, 31, 3)
+    args = parse_args()
 
-    data = get_wind_data("MTSAT-1R", "VIS", start_dt, end_dt)
+    #start_dt = datetime(2010, 7, 30, 21)
+    #end_dt = datetime(2010, 7, 31, 3)
+    start_dt = args.start
+    end_dt = args.end
 
-    data_to_bufr(data, "data/test_out.bufr", "MTSAT-1R", "VIS")
+    satellite_filter = args.satellite
+    channel_filter = args.channel
+
+    if satellite_filter == "all":
+        satellite_list = SATELLITE_NAMES
+    else:
+        satellite_list = [satellite_filter]
+    
+
+    if channel_filter == "all":
+        channel_list = CHANNEL_NAMES
+    else:
+        channel_list = [channel_filter]
+
+    for sat in satellite_list:
+        for chan in channel_list:
+            data = get_wind_data(sat, chan, start_dt, end_dt)
+
+            data_to_bufr(data, "data/test_out.bufr", sat, chan)
 
 
 if __name__ == "__main__":
