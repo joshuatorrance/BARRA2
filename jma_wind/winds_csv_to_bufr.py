@@ -11,7 +11,7 @@
 
 # IMPORTS
 from math import floor, sqrt
-from numpy import sqrt, arctan
+from numpy import sqrt, arctan2, degrees
 from scipy.constants import c
 from datetime import datetime, timezone
 import eccodes as ecc
@@ -26,42 +26,73 @@ TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/jma_wind/data/met8.bufr"
 SAMPLE_TEMPLATE = "BUFR3_local_satellite"
 
 # Length to separate the data into
-BUFR_MESSAGE_LEN = 128
+BUFR_MESSAGE_LEN = 550
 
 # Bufr Sequence
 UNEXPANDED_DESCRIPTORS = [
-#      1007,  # Satellite identifier
-#      2153,  # Satellite channel centre frequency
-#      2154,  # Satellite channel band width
-    109128,  # Replicate 9 descriptors 128 times
-    301011,  # Year, month, day
-    301013,  # Hour, minute, second
-    301021,  # Latitude and longitude
-      7004,  # Pressure
-    222000,  # Quality information follows
-     11001,  # Wind direction
-    222000,  # Quality information follows
-     11002,  # Wind speed
-      7024,  # Satellite zenith angle
+    310014, 222000, 236000, 101103,  31031,
+      1031,   1032, 101004,  33007, 222000,
+    237000,   1031,   1032, 101004,  33035,
+    222000, 237000,   1031,   1032, 101004,
+     33036, 222000, 237000,   1031,   1032,
+    101004,  33007, 222000, 237000,   1031,
+      1032, 101004,  33035, 222000, 237000,
+      1031,   1032, 101004,  33036, 222000,
+    237000,   1031,   1032, 101004,  33007,
+    222000, 237000,   1031,   1032, 101004,
+     33035, 222000, 237000,   1031,   1032,
+    101004, 33036
 ]
 
-# Satellite IDs
+DATA_PRESENT_BITMAP = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 0, 0, 0, 1, 1,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1
+]
+
+# Satellites
 #  https://confluence.ecmwf.int/display/ECC/WMO%3D2+code-flag+table#WMO=2codeflagtable-CF_001007
-SATELLITE_IDS = {"GMS-5": 152,
-                 "MTSAT-1R": 171,
-                 "MTSAT-2": 172,
-                 "GOES-9": 253}
-
-# Measurement bands
-# The central wavelength of the measurement bands in Hz
-# Wavelengths lifted from jma_interface.py comments.
-MEASUREMENT_BANDS_CENTRAL_WAVELENGTH_HZ = \
-    {"VIS": c / 0.675e-6,
-     "IR1": c / 10.8e-6,
-     "IR2": c / 12.0e-6,
-     "IR3": c / 6.75e-6,
-     "IR4": c / 3.75e-6}
-
+#  centre is the central wavelength in microns, bandwidth is also in microns
+SATELLITES = {"GMS-5": {
+                "id": 152,
+                "VIS": {"centre": 0.72, "bandwidth": 0.35},
+                "IR1": {"centre": 11.0, "bandwidth": 0.50},
+                "IR2": {"centre": 12.0, "bandwidth": 1.0},
+                "IR3": {"centre": 6.75, "bandwidth": 0.50}
+                },
+              "MTSAT-1R": {
+                "id": 171,
+                "VIS": {"centre": 0.725, "bandwidth": 0.35},
+                "IR1": {"centre":  10.8, "bandwidth": 1.0},
+                "IR2": {"centre":  12.0, "bandwidth": 1.0},
+                "IR3": {"centre":  6.75, "bandwidth": 0.50},
+                "IR4": {"centre":  3.75, "bandwidth": 0.50}
+                },
+              "MTSAT-2": {
+                "id": 172,
+                "VIS": {"centre": 0.675, "bandwidth": 0.25},
+                "IR1": {"centre":  10.8, "bandwidth": 1.0},
+                "IR2": {"centre":  12.0, "bandwidth": 1.0},
+                "IR3": {"centre":  6.75, "bandwidth": 0.50},
+                "IR4": {"centre":  3.75, "bandwidth": 0.50}
+                },
+              "GOES-9": {
+                "id": 253,
+                "VIS": {"centre":  0.65, "bandwidth": 0.20},
+                "IR1": {"centre": 10.70, "bandwidth": 1.0},
+                "IR2": {"centre": 11.95, "bandwidth": 0.9},
+                "IR3": {"centre":  6.57, "bandwidth": 0.50},
+                "IR4": {"centre":  3.90, "bandwidth": 0.20}
+                }
+            }
 
 # METHODS
 def data_to_bufr(data, output_filepath,
@@ -77,38 +108,32 @@ def data_to_bufr(data, output_filepath,
             for i in range(0, len(full_dataframe), BUFR_MESSAGE_LEN):
                 # Grab the next chunk of the data
                 dataframe = full_dataframe[i:i + BUFR_MESSAGE_LEN]
+                d_len = len(dataframe)
 
-                # Load the template BUFR
-                with open(template_filepath, 'r') as f_template:
-                    # output_bufr = ecc.codes_bufr_new_from_file(f_template,
-                    #                                           headers_only=True)
-                    pass
 
+                # Create the bufr message from the sample.
                 output_bufr = ecc.codes_bufr_new_from_samples(SAMPLE_TEMPLATE)
 
-                ecc.codes_set(output_bufr, 'unpack', 1)
+                # Set the data present bitmap for the quality info
+                ecc.codes_set_long_array(output_bufr, 'inputDataPresentIndicator',
+                                         DATA_PRESENT_BITMAP)
 
                 # Set header values
                 # These are set to be the same as in the template
                 ecc.codes_set(output_bufr, 'edition', 3)
                 ecc.codes_set(output_bufr, 'masterTableNumber', 0)
-                ecc.codes_set(output_bufr, 'bufrHeaderCentre', 1)
+                ecc.codes_set(output_bufr, 'bufrHeaderCentre', 34)
+                ecc.codes_set(output_bufr, 'bufrHeaderSubCentre', 0)
                 ecc.codes_set(output_bufr, 'dataCategory', 5)
                 ecc.codes_set(output_bufr, 'dataSubCategory', 87)
-                ecc.codes_set(output_bufr, 'masterTablesVersionNumber', 13)
-                ecc.codes_set(output_bufr, 'localTablesVersionNumber', 1)
+                ecc.codes_set(output_bufr, 'masterTablesVersionNumber', 8)
+                ecc.codes_set(output_bufr, 'localTablesVersionNumber', 0)
 
-                # Satellite details
-                ecc.codes_set(output_bufr, 'satelliteID',
-                              SATELLITE_IDS[satellite_name])
-                ecc.codes_set(output_bufr, 'satelliteIdentifier',
-                              SATELLITE_IDS[satellite_name])
-                ecc.codes_set(output_bufr, 'satelliteChannelCentreFrequency',
-                              MEASUREMENT_BANDS_CENTRAL_WAVELENGTH_HZ[channel_name])
-                # TODO: See if we also know satelliteChannelBandWidth
-
+                # Data set details
+                ecc.codes_set(output_bufr, 'numberOfSubsets', d_len)
+                ecc.codes_set(output_bufr, 'localNumberOfObservations', d_len)
+                ecc.codes_set(output_bufr, 'observedData', 1)
                 ecc.codes_set(output_bufr, 'compressedData', 1)
-                ecc.codes_set(output_bufr, 'numberOfSubsets', 1)
 
                 # Set time values
                 # For now set them to the fist time in the data set.
@@ -120,10 +145,31 @@ def data_to_bufr(data, output_filepath,
                 ecc.codes_set(output_bufr, 'typicalHour', first_dt.hour)
                 ecc.codes_set(output_bufr, 'typicalMinute', first_dt.minute)
 
-                # Template code
-                # Picked from BUFR Table D
-                # "Satellite - Geostationary wind data"
-                ecc.codes_set(output_bufr, 'unexpandedDescriptors', 310014)
+                # BUFR Sequence
+                ecc.codes_set_long_array(output_bufr, 'unexpandedDescriptors',
+                                         UNEXPANDED_DESCRIPTORS)
+
+                # Satellite details
+                sat_id = SATELLITES[satellite_name]["id"]
+                # Central wavelength (wl) and frequency (fq)
+                sat_centre_wl = SATELLITES[satellite_name][channel_name]["centre"] * 1e-6
+                sat_centre_fq = c / sat_centre_wl
+
+                # Bandwidth in wavelength (wl) and frequency (fq)
+                sat_bandwidth_wl = SATELLITES[satellite_name][channel_name]["bandwidth"] * 1e-6
+                sat_bandwidth_fq = c/(sat_centre_wl - 0.5*sat_bandwidth_wl) - \
+                                   c/(sat_centre_wl + 0.5*sat_bandwidth_wl)
+
+                ecc.codes_set(output_bufr, 'satelliteID', sat_id)
+                ecc.codes_set(output_bufr, 'satelliteIdentifier', sat_id)
+                ecc.codes_set(output_bufr, 'satelliteChannelCentreFrequency',
+                              sat_centre_fq)
+                ecc.codes_set(output_bufr, 'satelliteChannelBandWidth',
+                              sat_bandwidth_fq)
+
+                # Originating Centre - JMA - 34
+                ecc.codes_set(output_bufr, 'centre', 34)
+                #ecc.codes_set(output_bufr, 'subCentre', 0)
 
                 # Set the data arrays
                 set_arrays_for_dataframe(dataframe, output_bufr)
@@ -136,67 +182,60 @@ def data_to_bufr(data, output_filepath,
                 ecc.codes_release(output_bufr)
 
 
-def set_array(output_bufr, key, array):
-    # Assume array is a pandas series
-    for i, value in enumerate(array.to_numpy()):
-        i_key = "#{}#{}".format(i + 1, key)
-        print(i_key)
-        ecc.codes_set(output_bufr, i_key, value)
-
-
 def set_arrays_for_dataframe(dataframe, output_bufr):
     # Longitude & Latitude
-    #    ecc.codes_set_double_array(output_bufr, 'longitude',
-    #                               dataframe['lon(deg.)'].to_numpy())
-    #    ecc.codes_set_double_array(output_bufr, 'latitude',
-    #                               dataframe['lat(deg.)'].to_numpy())
-    set_array(output_bufr, 'longitude', dataframe['lon(deg.)'])
-    set_array(output_bufr, 'latitude', dataframe['lat(deg.)'])
+    ecc.codes_set_array(output_bufr, 'longitude',
+                        dataframe['lon(deg.)'].to_numpy())
+    ecc.codes_set_array(output_bufr, 'latitude',
+                        dataframe['lat(deg.)'].to_numpy())
 
     # Height/Pressure
     # 1 Pa = 100 hPa
-    print("Size of pressure:", ecc.codes_get_size(output_bufr, 'pressure'))
-    ecc.codes_set_double_array(output_bufr, 'pressure',
-                               (dataframe['height(hPa)'] / 100).to_numpy())
+    ecc.codes_set_array(output_bufr, '#1#pressure',
+                        (dataframe['height(hPa)'] * 100).to_numpy())
 
     # Time
-    ecc.codes_set_long_array(output_bufr, 'year',
-                             dataframe['time(mjd)'].dt.year.to_numpy())
-    ecc.codes_set_long_array(output_bufr, 'month',
-                             dataframe['time(mjd)'].dt.month.to_numpy())
-    ecc.codes_set_long_array(output_bufr, 'day',
-                             dataframe['time(mjd)'].dt.day.to_numpy())
-    ecc.codes_set_long_array(output_bufr, 'hour',
-                             dataframe['time(mjd)'].dt.hour.to_numpy())
-    ecc.codes_set_long_array(output_bufr, 'minute',
-                             dataframe['time(mjd)'].dt.minute.to_numpy())
+    ecc.codes_set_array(output_bufr, '#1#year',
+              [int(i) for i in dataframe['time(mjd)'].dt.year])
+    ecc.codes_set_array(output_bufr, '#1#month',
+              [int(i) for i in dataframe['time(mjd)'].dt.month])
+    ecc.codes_set_array(output_bufr, '#1#day',
+              [int(i) for i in dataframe['time(mjd)'].dt.day])
+    ecc.codes_set_array(output_bufr, '#1#hour',
+              [int(i) for i in dataframe['time(mjd)'].dt.hour])
+    ecc.codes_set_array(output_bufr, '#1#minute',
+              [int(i) for i in dataframe['time(mjd)'].dt.minute])
+    ecc.codes_set_array(output_bufr, '#1#second',
+              [int(i) for i in dataframe['time(mjd)'].dt.second])
 
     # Wind speed and velocity
     u = dataframe['u (m/s)']
     v = dataframe['v (m/s)']
 
+    # Wind direction is a bit odd in the meteorological context.
+    # More info: http://colaweb.gmu.edu/dev/clim301/lectures/wind/wind-uv
     wind_speed = sqrt(u ** 2 + v ** 2)
-    wind_direction = 270 - arctan(v / u)
+    wind_direction = (270 - degrees(arctan2(v, u))) % 360
 
-    # TODO: do we need to_numpy here? already ndarrays?
-    ecc.codes_set_double_array(output_bufr,
-                               'windSpeed', wind_speed.to_numpy())
-    ecc.codes_set_double_array(output_bufr,
-                               'windDirection', wind_direction.to_numpy())
+    ecc.codes_set_array(output_bufr, '#1#windSpeed',
+                        wind_speed.to_numpy())
+    ecc.codes_set_array(output_bufr, '#1#windDirection',
+                        wind_direction.to_numpy())
 
     # Quality Index
     # QI*100 = percent confidence
-    # TODO: Confirm this is true
     # TODO: Does the QI apply directly like this?
-    #           Do the u & v errors need combined?
-    ecc.codes_set_double_array(output_bufr, 'windSpeed->percentConfidence',
-                               (100 * dataframe['QI not using NWP']).to_numpy())
-    ecc.codes_set_double_array(output_bufr, 'windDirection->percentConfidence',
-                               (100 * dataframe['QI not using NWP']).to_numpy())
+    #           Do the u & v errors need combined for windSpeed/Dir?
+    # TODO: What does the QI apply to?
+    #           Measurement (u & v)? Coordinates (lat, lon, pres)?
+    ecc.codes_set_array(output_bufr, '#1#windSpeed->percentConfidence',
+                        (100 * dataframe['QI not using NWP']).to_numpy())
+    ecc.codes_set_array(output_bufr, '#1#windDirection->percentConfidence',
+                        (100 * dataframe['QI not using NWP']).to_numpy())
 
     # Satellite Zenith Angle
-    ecc.codes_set_double_array(output_bufr, 'satelliteZenithAngle',
-                               dataframe['satzenithangle(deg.)'].to_numpy())
+    ecc.codes_set_array(output_bufr, 'satelliteZenithAngle',
+                        dataframe['satzenithangle(deg.)'].to_numpy())
 
 
 # SCRIPT
