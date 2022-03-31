@@ -317,8 +317,6 @@ def main():
             for chan in channel_list:
                 data = get_wind_data(sat, chan, start_dt, end_dt)
 
-                print(data)
-
                 if len(data)>0:
                     data_to_bufr(data, f, sat, chan)
 
