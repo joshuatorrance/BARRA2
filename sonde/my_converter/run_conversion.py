@@ -154,8 +154,10 @@ def _process_zip(f_zip, biases):
 def main():
     # Multiprocessing hax
     # Take command line arg to indicate which process this is
-    num_processes = 10
+    num_processes = 100
     process_n = int(argv[1])
+
+    print("Running python script, {} of {}".format(process_n, num_processes))
 
     # Build a dictionary of bias correction files with their station names.
     biases = get_bias_correction_stations(SONDE_NC_INPUT_DIR)
