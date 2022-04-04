@@ -377,6 +377,10 @@ def get_hdfs_between_datetimes(start_dt, end_dt, output_dir=DATA_DIR,
                 # Check the next file.
                 file_end_dt = get_observation_limit_from_file(local_file_paths[0], "End")
                 
+            # Check that there are still files in the list...
+            if len(local_file_paths) == 0:
+                continue
+
             # Only split the file if is starts before the start of the bin.
             #   Use the filename for the start_dt as, at time of writing, the split
             #   hdf methods do not update the hdf.attrs start/end labels.
