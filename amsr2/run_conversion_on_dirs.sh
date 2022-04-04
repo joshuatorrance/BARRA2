@@ -10,9 +10,18 @@ CONVERSION_SCRIPT=/g/data/hd50/jt4085/BARRA2/amsr2/run_converter.sh
 N_THREADS=10
 thread_count=0
 
+# Check command line for a year
+if [[ $# -eq 1 ]]; then
+    # Get the year from the commandline
+    year=$1
+else
+    # Set the year manually.
+    year=22
+fi
+
 # Filter with characters about the *
 # TODO: add some more checking on the loops to ensure matches are actually dirs
-for year_dir in $HEAD_DIR/*8; do
+for year_dir in $HEAD_DIR/*$year; do
     echo Year: `basename $year_dir`
 
     for month_dir in $year_dir/*; do
