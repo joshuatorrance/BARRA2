@@ -98,6 +98,10 @@ def get_wind_data(platform, channel, tstart, tend):
 
         df_from_each_file = (pd.read_csv(f, compression='gzip') for f in infiles[coverage])
         df   = pd.concat(df_from_each_file, ignore_index=True)
+
+        # EDIT by JT: occaasionally the CSVs have no data rows
+        if len(df) == 0:
+            continue
         time = num2date(df['time(mjd)'].values, _time_units)
         time = [dt(t.year, t.month, t.day, t.hour, t.minute, t.second) for t in time]
         # covnert to datetime objects
