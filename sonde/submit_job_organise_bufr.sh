@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -P hd50
+#PBS -P dp9
 #PBS -l ncpus=1
 #PBS -l mem=10gb
 #PBS -l walltime=24:00:00
@@ -15,7 +15,7 @@ module load python3/3.8.5
 module load eccodes3
 
 # Parameters
-script_path=/g/data/hd50/jt4085/BARRA2/sonde/my_converter/organise_bufr.py
+script_path=/g/data/hd50/jt4085/BARRA2/sonde/organise_bufr.py
 output_dir=/scratch/hd50/jt4085/sonde/data-bufr-bins
 
 # Run script for each file path supplied

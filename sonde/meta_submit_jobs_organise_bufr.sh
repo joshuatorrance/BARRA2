@@ -3,7 +3,7 @@
 # This job iterates through a directory of bufr files then passes
 # each one to submit_job_organise_bufrs.sh
 
-job_script=/g/data/hd50/jt4085/BARRA2/sonde/my_converter/submit_job_organise_bufr.sh
+job_script=/g/data/hd50/jt4085/BARRA2/sonde/submit_job_organise_bufr.sh
 
 bufr_file_dir=/scratch/hd50/jt4085/sonde/data-bufr
 bufr_file_str="$bufr_file_dir/*.bufr"

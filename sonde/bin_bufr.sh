@@ -6,7 +6,7 @@
 # I have yoinked a copy of Chun-Hsu's script so that I can tweak a
 # detail or two.
 
-script_dir=/g/data/hd50/jt4085/BARRA2/sonde/my_converter
+script_dir=/g/data/hd50/jt4085/BARRA2/sonde
 script_path=$script_dir/organise_bufr.py
 
 bufr_dir=/scratch/hd50/jt4085/sonde/data-bufr-test

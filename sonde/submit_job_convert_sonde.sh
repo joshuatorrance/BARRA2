@@ -17,7 +17,7 @@ module load eccodes3
 echo "job number: $job_num"
 
 python3 \
-    /g/data/hd50/jt4085/BARRA2/sonde/my_converter/run_conversion.py \
+    /g/data/hd50/jt4085/BARRA2/sonde/run_conversion.py \
     $job_num &
 
 # Wait for the threads to close
