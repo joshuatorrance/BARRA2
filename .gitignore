@@ -132,6 +132,7 @@ dmypy.json
 .pyre/
 
 # Obs Data files to ignore
+data/
 *.bufr
 *.nc
 *.txt
