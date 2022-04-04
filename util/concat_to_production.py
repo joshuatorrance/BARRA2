@@ -25,17 +25,23 @@ SYMLINK_FILENAME = "AMSR2_1.bufr"
 ## SCRIPT
 def main():
 
-    for y_dir in glob(join(INPUT_DIR, "*")):
+    years = glob(join(INPUT_DIR, "*"))
+    years.sort()
+    for y_dir in years:
         y = basename(y_dir)
 
         print("Year:", y)
 
-        for m_dir in glob(join(y_dir, "*")):
+        months = glob(join(y_dir, "*"))
+        months.sort()
+        for m_dir in months:
             m = basename(m_dir)
 
             print("\tMonth:", m)
 
-            for dt_dir in glob(join(m_dir, "*")):
+            dts = glob(join(m_dir, "*"))
+            dts.sort()
+            for dt_dir in dts:
                 dt = basename(dt_dir)
 
                 print("\t\t", dt)
@@ -50,7 +56,7 @@ def main():
                 out_filename = OUTPUT_FILENAME.format(dt_str=dt)
                 out_filepath = join(out_dir, out_filename)
 
-                if exists(out_filpath):
+                if exists(out_filepath):
                     print("\t\t\tOutput file already exists skipping")
                     continue
 
@@ -58,7 +64,9 @@ def main():
 
                 # Concatenate the input files into a temp single file
                 with open(temp_out_filepath, 'wb') as temp_out_file:
-                    for f in glob(join(dt_dir, "*.bufr")):
+                    fs = glob(join(dt_dir, "*.bufr"))
+                    fs.sort()
+                    for f in fs:
                         f_name = basename(f)
 
                         with open(f, 'rb') as in_file:
