@@ -4,13 +4,11 @@
 # The input CSVs are expected to have the following columns:
 # lon(deg.),lat(deg.),height(hPa),time(mjd),QI using NWP,QI not using NWP,u (m/s),v (m/s),satzenithangle(deg.) 
 #
-# A template BUFR file is required for the initial setup of the file.
-#
 # Intended for use with the BARRA2 project.
 # Author: Joshua Torrance
 
 # IMPORTS
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from math import floor, sqrt
 from numpy import sqrt, arctan2, degrees
 from scipy.constants import c
@@ -23,10 +21,7 @@ from jma_interface import get_wind_data
 # Commandline arg datetime format
 COMMANDLINE_DT_FORMAT = "%Y%m%dT%H%M"
 
-# Template to build the bufrs from.
-TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/jma_wind/data/met8.bufr"
-
-# We can theoretically build from a blank sample template too
+# We can build from a blank sample template
 SAMPLE_TEMPLATE = "BUFR3_local_satellite"
 
 # Length to separate the data into
@@ -66,7 +61,7 @@ DATA_PRESENT_BITMAP = [
 #  https://confluence.ecmwf.int/display/ECC/WMO%3D2+code-flag+table#WMO=2codeflagtable-CF_001007
 #  centre is the central wavelength in microns, bandwidth is also in microns
 # TODO: jma_interface is only implemented for MTSAT-2 and MTSAT-1R at the moment.
-#SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
+# SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
 SATELLITE_NAMES = ["MTSAT-1R", "MTSAT-2"]
 CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
 SATELLITES = {"GMS-5": {
@@ -100,93 +95,91 @@ SATELLITES = {"GMS-5": {
                 "IR3": {"centre":  6.57, "bandwidth": 0.50},
                 "IR4": {"centre":  3.90, "bandwidth": 0.20}
                 }
-            }
+              }
+
 
 # METHODS
 def data_to_bufr(data, output_file,
-                 satellite_name, channel_name,
-                 template_filepath=TEMPLATE_BUFR):
-        for key in data:
-            # Potentially multiple datasets per data
-            # They'll be written as serial messages
-            # a - full dish, f - Northern hemisphere, s - Southern hemisphere
-            full_dataframe = data[key]
+                 satellite_name, channel_name):
+    for key in data:
+        # Potentially multiple datasets per data
+        # They'll be written as serial messages
+        # a - full dish, f - Northern hemisphere, s - Southern hemisphere
+        full_dataframe = data[key]
 
-            for i in range(0, len(full_dataframe), BUFR_MESSAGE_LEN):
-                # Grab the next chunk of the data
-                dataframe = full_dataframe[i:i + BUFR_MESSAGE_LEN]
-                d_len = len(dataframe)
+        for i in range(0, len(full_dataframe), BUFR_MESSAGE_LEN):
+            # Grab the next chunk of the data
+            dataframe = full_dataframe[i:i + BUFR_MESSAGE_LEN]
+            d_len = len(dataframe)
 
+            # Create the bufr message from the sample.
+            output_bufr = ecc.codes_bufr_new_from_samples(SAMPLE_TEMPLATE)
 
-                # Create the bufr message from the sample.
-                output_bufr = ecc.codes_bufr_new_from_samples(SAMPLE_TEMPLATE)
+            # Set the data present bitmap for the quality info
+            ecc.codes_set_long_array(output_bufr, 'inputDataPresentIndicator',
+                                     DATA_PRESENT_BITMAP)
 
-                # Set the data present bitmap for the quality info
-                ecc.codes_set_long_array(output_bufr, 'inputDataPresentIndicator',
-                                         DATA_PRESENT_BITMAP)
+            # Set header values
+            # These are set to be the same as in the template
+            ecc.codes_set(output_bufr, 'edition', 3)
+            ecc.codes_set(output_bufr, 'masterTableNumber', 0)
+            ecc.codes_set(output_bufr, 'bufrHeaderCentre', 34)
+            ecc.codes_set(output_bufr, 'bufrHeaderSubCentre', 0)
+            ecc.codes_set(output_bufr, 'dataCategory', 5)
+            ecc.codes_set(output_bufr, 'dataSubCategory', 87)
+            ecc.codes_set(output_bufr, 'masterTablesVersionNumber', 8)
+            ecc.codes_set(output_bufr, 'localTablesVersionNumber', 0)
 
-                # Set header values
-                # These are set to be the same as in the template
-                ecc.codes_set(output_bufr, 'edition', 3)
-                ecc.codes_set(output_bufr, 'masterTableNumber', 0)
-                ecc.codes_set(output_bufr, 'bufrHeaderCentre', 34)
-                ecc.codes_set(output_bufr, 'bufrHeaderSubCentre', 0)
-                ecc.codes_set(output_bufr, 'dataCategory', 5)
-                ecc.codes_set(output_bufr, 'dataSubCategory', 87)
-                ecc.codes_set(output_bufr, 'masterTablesVersionNumber', 8)
-                ecc.codes_set(output_bufr, 'localTablesVersionNumber', 0)
+            # Data set details
+            ecc.codes_set(output_bufr, 'numberOfSubsets', d_len)
+            ecc.codes_set(output_bufr, 'localNumberOfObservations', d_len)
+            ecc.codes_set(output_bufr, 'observedData', 1)
+            ecc.codes_set(output_bufr, 'compressedData', 1)
 
-                # Data set details
-                ecc.codes_set(output_bufr, 'numberOfSubsets', d_len)
-                ecc.codes_set(output_bufr, 'localNumberOfObservations', d_len)
-                ecc.codes_set(output_bufr, 'observedData', 1)
-                ecc.codes_set(output_bufr, 'compressedData', 1)
+            # Set time values
+            # For now set them to the fist time in the data set.
+            first_dt = dataframe['time(mjd)'].iloc[0]
+            ecc.codes_set(output_bufr, 'typicalCentury', floor(first_dt.year / 100))
+            ecc.codes_set(output_bufr, 'typicalYearOfCentury', first_dt.year % 100)
+            ecc.codes_set(output_bufr, 'typicalMonth', first_dt.month)
+            ecc.codes_set(output_bufr, 'typicalDay', first_dt.day)
+            ecc.codes_set(output_bufr, 'typicalHour', first_dt.hour)
+            ecc.codes_set(output_bufr, 'typicalMinute', first_dt.minute)
 
-                # Set time values
-                # For now set them to the fist time in the data set.
-                first_dt = dataframe['time(mjd)'].iloc[0]
-                ecc.codes_set(output_bufr, 'typicalCentury', floor(first_dt.year / 100))
-                ecc.codes_set(output_bufr, 'typicalYearOfCentury', first_dt.year % 100)
-                ecc.codes_set(output_bufr, 'typicalMonth', first_dt.month)
-                ecc.codes_set(output_bufr, 'typicalDay', first_dt.day)
-                ecc.codes_set(output_bufr, 'typicalHour', first_dt.hour)
-                ecc.codes_set(output_bufr, 'typicalMinute', first_dt.minute)
+            # BUFR Sequence
+            ecc.codes_set_long_array(output_bufr, 'unexpandedDescriptors',
+                                     UNEXPANDED_DESCRIPTORS)
 
-                # BUFR Sequence
-                ecc.codes_set_long_array(output_bufr, 'unexpandedDescriptors',
-                                         UNEXPANDED_DESCRIPTORS)
+            # Satellite details
+            sat_id = SATELLITES[satellite_name]["id"]
+            # Central wavelength (wl) and frequency (fq)
+            sat_centre_wl = SATELLITES[satellite_name][channel_name]["centre"] * 1e-6
+            sat_centre_fq = c / sat_centre_wl
 
-                # Satellite details
-                sat_id = SATELLITES[satellite_name]["id"]
-                # Central wavelength (wl) and frequency (fq)
-                sat_centre_wl = SATELLITES[satellite_name][channel_name]["centre"] * 1e-6
-                sat_centre_fq = c / sat_centre_wl
+            # Bandwidth in wavelength (wl) and frequency (fq)
+            sat_bandwidth_wl = SATELLITES[satellite_name][channel_name]["bandwidth"] * 1e-6
+            sat_bandwidth_fq = c / (sat_centre_wl - 0.5 * sat_bandwidth_wl) - \
+                               c / (sat_centre_wl + 0.5 * sat_bandwidth_wl)
 
-                # Bandwidth in wavelength (wl) and frequency (fq)
-                sat_bandwidth_wl = SATELLITES[satellite_name][channel_name]["bandwidth"] * 1e-6
-                sat_bandwidth_fq = c/(sat_centre_wl - 0.5*sat_bandwidth_wl) - \
-                                   c/(sat_centre_wl + 0.5*sat_bandwidth_wl)
+            ecc.codes_set(output_bufr, 'satelliteID', sat_id)
+            ecc.codes_set(output_bufr, 'satelliteIdentifier', sat_id)
+            ecc.codes_set(output_bufr, 'satelliteChannelCentreFrequency',
+                          sat_centre_fq)
+            ecc.codes_set(output_bufr, 'satelliteChannelBandWidth',
+                          sat_bandwidth_fq)
 
-                ecc.codes_set(output_bufr, 'satelliteID', sat_id)
-                ecc.codes_set(output_bufr, 'satelliteIdentifier', sat_id)
-                ecc.codes_set(output_bufr, 'satelliteChannelCentreFrequency',
-                              sat_centre_fq)
-                ecc.codes_set(output_bufr, 'satelliteChannelBandWidth',
-                              sat_bandwidth_fq)
+            # Originating Centre - JMA - 34
+            ecc.codes_set(output_bufr, 'centre', 34)
 
-                # Originating Centre - JMA - 34
-                ecc.codes_set(output_bufr, 'centre', 34)
-                #ecc.codes_set(output_bufr, 'subCentre', 0)
+            # Set the data arrays
+            set_arrays_for_dataframe(dataframe, output_bufr)
 
-                # Set the data arrays
-                set_arrays_for_dataframe(dataframe, output_bufr)
+            # Finish the file
+            ecc.codes_set(output_bufr, 'pack', 1)
 
-                # Finish the file
-                ecc.codes_set(output_bufr, 'pack', 1)
+            ecc.codes_write(output_bufr, output_file)
 
-                ecc.codes_write(output_bufr, output_file)
-
-                ecc.codes_release(output_bufr)
+            ecc.codes_release(output_bufr)
 
 
 def set_arrays_for_dataframe(dataframe, output_bufr):
@@ -203,17 +196,17 @@ def set_arrays_for_dataframe(dataframe, output_bufr):
 
     # Time
     ecc.codes_set_array(output_bufr, '#1#year',
-              [int(i) for i in dataframe['time(mjd)'].dt.year])
+                        [int(i) for i in dataframe['time(mjd)'].dt.year])
     ecc.codes_set_array(output_bufr, '#1#month',
-              [int(i) for i in dataframe['time(mjd)'].dt.month])
+                        [int(i) for i in dataframe['time(mjd)'].dt.month])
     ecc.codes_set_array(output_bufr, '#1#day',
-              [int(i) for i in dataframe['time(mjd)'].dt.day])
+                        [int(i) for i in dataframe['time(mjd)'].dt.day])
     ecc.codes_set_array(output_bufr, '#1#hour',
-              [int(i) for i in dataframe['time(mjd)'].dt.hour])
+                        [int(i) for i in dataframe['time(mjd)'].dt.hour])
     ecc.codes_set_array(output_bufr, '#1#minute',
-              [int(i) for i in dataframe['time(mjd)'].dt.minute])
+                        [int(i) for i in dataframe['time(mjd)'].dt.minute])
     ecc.codes_set_array(output_bufr, '#1#second',
-              [int(i) for i in dataframe['time(mjd)'].dt.second])
+                        [int(i) for i in dataframe['time(mjd)'].dt.second])
 
     # Wind speed and velocity
     u = dataframe['u (m/s)']
@@ -252,7 +245,7 @@ def parse_args():
             # Parse the input string
             # These timezones are timezone naive to match
             #   those in jma_interface.
-            #return datetime.strptime(s + "+0000", COMMANDLINE_DT_FORMAT + "%z")
+            # return datetime.strptime(s + "+0000", COMMANDLINE_DT_FORMAT + "%z")
             return datetime.strptime(s, COMMANDLINE_DT_FORMAT)
         except ValueError:
             msg = "not a valid date: {0!r}".format(s)
@@ -306,7 +299,7 @@ def main():
         satellite_list = SATELLITE_NAMES
     else:
         satellite_list = [satellite_filter]
-    
+
     if channel_filter == "all":
         channel_list = CHANNEL_NAMES
     else:
@@ -317,7 +310,7 @@ def main():
             for chan in channel_list:
                 data = get_wind_data(sat, chan, start_dt, end_dt)
 
-                if len(data)>0:
+                if len(data) > 0:
                     data_to_bufr(data, f, sat, chan)
 
 
