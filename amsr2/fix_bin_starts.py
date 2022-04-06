@@ -53,12 +53,7 @@ def set_start_time_in_hdf(hdf_filename, new_start_time_dt):
 
             print("done.")
         else:
-            print("\t\t\tStart time already correct, fixing type...", end="")
-
-            hdf.attrs.create(HDF_START_KEY, [cur_start_str],
-                             dtype=string_dtype(encoding='ascii'))
-
-            print("done.")
+            print("\t\t\tStart time already correct.")
 
 
 # SCRIPT
