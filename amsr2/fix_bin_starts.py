@@ -10,7 +10,7 @@
 from glob import glob
 from os.path import join, basename
 from datetime import datetime, timedelta
-from h5py import File
+from h5py import File, string_dtype
 
 
 # PARAMETERS
@@ -33,6 +33,12 @@ def set_start_time_in_hdf(hdf_filename, new_start_time_dt):
         cur_start_dt = datetime.strptime(cur_start_str, HDF_DT_FORMAT)
 
         if cur_start_dt != new_start_time_dt:
+            print("\t\t\tSaving old start time...", end="")
+
+            hdf.attrs[HDF_OLD_START_KEY] = [cur_start_str]
+
+            print("done.")
+
             print("\t\t\tUpdating start time...", end="")
             new_start_str = new_start_time_dt.strftime(HDF_DT_FORMAT)
             
@@ -41,15 +47,13 @@ def set_start_time_in_hdf(hdf_filename, new_start_time_dt):
 
             # Set the key to the new value
             # As a list since the value is an ndarray for some reason
-            hdf.attrs[HDF_START_KEY] = [new_start_str]
+            # Need to convert to ASCII string for the fortran converter
+            hdf.attrs.create(HDF_START_KEY, [new_start_str],
+                             dtype=string_dtype(encoding='ascii'))
 
             print("done.")
 
-            print("\t\t\tSaving old start time...", end="")
 
-            hdf.attrs[HDF_OLD_START_KEY] = [cur_start_str]
-
-            print("done.")
         else:
             print("\t\t\tStart time already correct.")
 
