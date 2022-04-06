@@ -96,11 +96,11 @@ def main():
                     min=start_bin_dt.minute) 
 
                 start_edge_hdfs = glob(join(dt_dir, file_str))
+                start_edge_hdfs.sort()
 
                 if len(start_edge_hdfs) > 0:
                     set_start_time_in_hdf(start_edge_hdfs[0], start_bin_dt)
 
 
 if __name__ == "__main__":
-    # Testing
     main()
