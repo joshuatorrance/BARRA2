@@ -164,7 +164,7 @@ def _get_split_index(hdf_filepath, split_point_dt,
                              "outside HDF file's datetime range {} to {}.".format(split_point_dt, start_dt, end_dt))
 
 
-def _filter_amsr2_hdf(hdf_filepath, split_index, mode='before'):
+def _filter_amsr2_hdf(hdf_filepath, split_index, split_dt, mode='before'):
     with hdfFile(hdf_filepath, 'r+') as hdf:
         # Get the length of scan time so we can ensure we're
         # splitting on the correct dimension.
@@ -201,7 +201,20 @@ def _filter_amsr2_hdf(hdf_filepath, split_index, mode='before'):
             # Write the new array to the dataset
             dataset[...] = arr
 
-        # TODO: Add to or update the hdf's attrs to reflect the changed data.
+        # If the start time has changed then save the original start time
+        # for posterity
+        if mode == 'after':
+            hdf.attrs["OriginalObservationStartDateTime"] = \
+                hdf.attrs["ObservationStartDateTime"]
+
+            # Update the start time with the split time
+            new_start_str = split_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+            # Too many digits for microseconds - HH:MM:123456Z, only want 3
+            new_start_str = new_start_str[:-4] + 'Z'
+
+            # This is stored as an array for some reason
+            hdf.attrs["ObservationStartDateTime"] = [new_start_str]
 
 
 def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
@@ -227,10 +240,11 @@ def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
         if hdf_filepath != f_after and exists(f_after):
             delete_file(f_after)
 
-        raise ValueError("amsr2_util.split_hdf_at_datetime: output files have the same filepath.")
+        raise ValueError("amsr2_util.split_hdf_at_datetime: "
+                         "output files have the same filepath.")
 
-    # Copy the files
-    # Copy both files before splitting in case either of the copies has the same filepath as the original
+    # Copy both files before splitting in case either of the copies has the same
+    # filepath as the original
     if f_before:
         if hdf_filepath != f_before:
             copyfile(hdf_filepath, f_before)
@@ -241,7 +255,7 @@ def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
 
     # Filter out the data before/after the split point on each copy.
     if f_before:
-        _filter_amsr2_hdf(f_before, split_index, mode='before')
+        _filter_amsr2_hdf(f_before, split_index, split_point_dt, mode='before')
 
     if f_after:
-        _filter_amsr2_hdf(f_after, split_index, mode='after')
+        _filter_amsr2_hdf(f_after, split_index, split_point_dt, mode='after')
