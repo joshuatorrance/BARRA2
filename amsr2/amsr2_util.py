@@ -3,7 +3,7 @@
 # Joshua Torrance (jt4085)
 
 # IMPORTS
-from h5py import File as hdfFile
+from h5py import File as hdfFile, string_dtype
 from shutil import copyfile
 from datetime import datetime, timedelta, timezone
 from os import remove as delete_file
@@ -216,7 +216,8 @@ def _filter_amsr2_hdf(hdf_filepath, split_index, split_dt, mode='before'):
             new_start_str = new_start_str[:-4] + 'Z'
 
             # This is stored as an array for some reason
-            hdf.attrs["ObservationStartDateTime"] = [ascii(new_start_str)]
+            hdf.attrs.create("ObservationStartDateTime", [new_start_str],
+                             dtype=string_dtype(encoding='ascii'))
 
 
 def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
