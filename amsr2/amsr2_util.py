@@ -210,13 +210,13 @@ def _filter_amsr2_hdf(hdf_filepath, split_index, split_dt, mode='before'):
                 hdf.attrs["ObservationStartDateTime"]
 
             # Update the start time with the split time
-            new_start_str = ascii(split_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+            new_start_str = split_dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
             # Too many digits for microseconds - HH:MM:123456Z, only want 3
             new_start_str = new_start_str[:-4] + 'Z'
 
             # This is stored as an array for some reason
-            hdf.attrs["ObservationStartDateTime"] = [new_start_str]
+            hdf.attrs["ObservationStartDateTime"] = [ascii(new_start_str)]
 
 
 def split_hdf_at_datetime(hdf_filepath, split_point_dt, output_filepaths=None):
