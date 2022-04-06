@@ -81,7 +81,7 @@ def main():
 
                 # HDF filenames are similar to:
                 #  GW1AM2_201502282100_140A_L1SGBTBR_2220220.h5
-                file_str =  "*{y:04}{mon:02}{d:02}{h:02}{min:02}*.h5".format(
+                file_str = "*{y:04}{mon:02}{d:02}{h:02}{min:02}*.h5".format(
                     y=start_bin_dt.year,
                     mon=start_bin_dt.month,
                     d=start_bin_dt.day,
@@ -90,15 +90,10 @@ def main():
 
                 start_edge_hdfs = glob(join(dt_dir, file_str))
 
-                if len(start_edge_hdfs)>0:
+                if len(start_edge_hdfs) > 0:
                     set_start_time_in_hdf(start_edge_hdfs[0], start_bin_dt)
-
 
 
 if __name__ == "__main__":
     # Testing
-#    dt = datetime(year=2012, month=7, day=3, hour=3)
-#    filepath = "/home/548/jt4085/temp.bufr"
-#    set_start_time_in_hdf(filepath, dt)
     main()
-
