@@ -19,12 +19,12 @@ from gribapi import errors as grib_errors
 
 # CLASSES
 class BufrFile:
-    def __init__(self, filepath):
+    def __init__(self, filepath, mode='rb'):
         self.filepath = filepath
+        self.filemode = mode
 
     def __enter__(self):
-        # TODO: Update with write as an option too.
-        self.file_obj = open(self.filepath, 'rb')
+        self.file_obj = open(self.filepath, self.filemode)
 
         return self
 
