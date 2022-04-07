@@ -68,6 +68,8 @@ class BufrMessage:
         self.parent_bufr = bufr
         self.message_id = message_id
 
+        ecc.codes_set(self.message_id, 'unpack', 1)
+
     def get_attributes(self):
         return BufrAttributes(self)
 
