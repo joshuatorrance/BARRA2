@@ -74,6 +74,15 @@ class BufrMessage:
     def get_attribute(self, key):
         return BufrAttribute(self, key)
 
+    def get_value(self, key):
+        return BufrAttribute(self, key).get_value()
+
+    def get_locations(self):
+        lat = BufrAttribute(self, "latitude").get_value()
+        lon = BufrAttribute(self, "longitude").get_value()
+
+        return zip(lat, lon)
+
 
 class BufrAttributes:
     def __init__(self, bufr_message):
