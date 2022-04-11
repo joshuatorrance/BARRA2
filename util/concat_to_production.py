@@ -56,46 +56,50 @@ def main():
 
                 print("\t\t", dt)
 
-                # Find the corresponding output dir
-                out_dir = join(OUTPUT_DIR, y, m, dt, "bufr", TYPE)
+                fs = glob(join(dt_dir, "*.bufr"))
+                fs.sort()
+                if len(fs) > 0:
+                    # Find the corresponding output dir
+                    out_dir = join(OUTPUT_DIR, y, m, dt, "bufr", TYPE)
 
-                # If the output directory doesn't exist create it.
-                makedirs(out_dir, exist_ok=True)
+                    # If the output directory doesn't exist create it.
+                    makedirs(out_dir, exist_ok=True)
 
-                # Build the output file paths
-                out_filename = OUTPUT_FILENAME.format(dt_str=dt)
-                out_filepath = join(out_dir, out_filename)
+                    # Build the output file paths
+                    out_filename = OUTPUT_FILENAME.format(dt_str=dt)
+                    out_filepath = join(out_dir, out_filename)
 
-                if exists(out_filepath):
-                    print("\t\t\tOutput file already exists skipping")
-                    continue
+                    if exists(out_filepath):
+                        print("\t\t\tOutput file already exists skipping")
+                        continue
 
-                temp_out_filepath = out_filepath + TEMP_SUFFIX
+                    # Concatenate the input files into a temp single file
+                    temp_out_filepath = out_filepath + TEMP_SUFFIX
 
-                # Concatenate the input files into a temp single file
-                with open(temp_out_filepath, 'wb') as temp_out_file:
-                    fs = glob(join(dt_dir, "*.bufr"))
-                    fs.sort()
-                    for f in fs:
-                        f_name = basename(f)
+                    with open(temp_out_filepath, 'wb') as temp_out_file:
+                        for f in fs:
+                            f_name = basename(f)
 
-                        if getsize(f)>0:
-                            with open(f, 'rb') as in_file:
-                                temp_out_file.write(in_file.read())
-                        else:
-                            print("File has a size of 0, skipping")
+                            if getsize(f)>0:
+                                print("\t\t\tCat-ing file:", f_name)
+                                with open(f, 'rb') as in_file:
+                                    temp_out_file.write(in_file.read())
+                            else:
+                                print("\t\t\tFile has a size of 0, skipping")
 
-                # Move the temp file to the output file
-                move(temp_out_filepath, out_filepath)
+                    # Move the temp file to the output file
+                    move(temp_out_filepath, out_filepath)
 
-                # Create a symlink to the outfile
-                symlink_filepath = join(out_dir, SYMLINK_FILENAME)
+                    # Create a symlink to the outfile
+                    symlink_filepath = join(out_dir, SYMLINK_FILENAME)
 
-                if exists(symlink_filepath):
-                    # Delete the symlink if it already exists
-                    remove(symlink_filepath)
+                    if exists(symlink_filepath):
+                        # Delete the symlink if it already exists
+                        remove(symlink_filepath)
 
-                symlink(out_filepath, symlink_filepath)
+                    symlink(out_filepath, symlink_filepath)
+                else:
+                    print("\t\t\tNo input files in bin.")
 
 
 if __name__ == "__main__":
