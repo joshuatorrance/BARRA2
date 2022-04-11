@@ -59,9 +59,12 @@ for (( i=$start_timestamp ; i<$end_timestamp ; i+=$bin_size_sec )); do
         -e $end_dt \
         -o $temp_output_file
 
-    # Move the temp file to the output file
-    if [ -f $temp_output_file ]; then
+    # Move the temp file to the output file if it exists and is >0
+    if [[ -s $temp_output_file ]]; then
         mv $temp_output_file $output_file
+    else
+        # Delete the temp file is the size is zero
+        rm -f $temp_output_file
     fi
 done
 
