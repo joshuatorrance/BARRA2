@@ -13,6 +13,7 @@
 # Author: Joshua Torrance
 
 # IMPORTS
+from numpy import ndarray
 import eccodes as ecc
 from gribapi import errors as grib_errors
 
@@ -83,7 +84,7 @@ class BufrMessage:
         lat = BufrAttribute(self, "latitude").get_value()
         lon = BufrAttribute(self, "longitude").get_value()
 
-        return zip(lat, lon)
+        return lat, lon
 
 
 class BufrAttributes:
