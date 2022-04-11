@@ -5,21 +5,31 @@
 ## IMPORTS
 from glob import glob
 from os import makedirs, symlink, remove
-from os.path import join, basename, normpath, exists
+from os.path import join, basename, normpath, exists, getsize
 from shutil import move
 
 
 ## PARAMETERS
-INPUT_DIR = "/g/data/hd50/barra2/data/obs/amsr2"
-OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
+# AMSR-2
+if False:
+    INPUT_DIR = "/g/data/hd50/barra2/data/obs/amsr2"
+    TYPE = "amsr"
+    OUTPUT_FILENAME = TYPE + "_{dt_str}.bufr"
+    SYMLINK_FILENAME = "AMSR2_1.bufr"
+
+# JMA Winds
+if True:
+    INPUT_DIR = "/scratch/hd50/jt4085/jma_wind/bufr"
+    TYPE = "satwind"
+    OUTPUT_FILENAME = "mtsat_{dt_str}.bufr"
+    SYMLINK_FILENAME = "JMAWINDS_1.bufr"
+
+# Output
+#OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
 OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
 
-TYPE = "amsr"
-
-OUTPUT_FILENAME = TYPE + "_{dt_str}.bufr"
 TEMP_SUFFIX = ".temp"
 
-SYMLINK_FILENAME = "AMSR2_1.bufr"
 
 
 ## SCRIPT
@@ -69,8 +79,11 @@ def main():
                     for f in fs:
                         f_name = basename(f)
 
-                        with open(f, 'rb') as in_file:
-                            temp_out_file.write(in_file.read())
+                        if getsize(f)>0:
+                            with open(f, 'rb') as in_file:
+                                temp_out_file.write(in_file.read())
+                        else:
+                            print("File has a size of 0, skipping")
 
                 # Move the temp file to the output file
                 move(temp_out_filepath, out_filepath)
