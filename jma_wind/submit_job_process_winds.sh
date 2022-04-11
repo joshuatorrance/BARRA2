@@ -60,7 +60,9 @@ for (( i=$start_timestamp ; i<$end_timestamp ; i+=$bin_size_sec )); do
         -o $temp_output_file
 
     # Move the temp file to the output file
-    mv $temp_output_file $output_file
+    if [ -f $temp_output_file ]; then
+        mv $temp_output_file $output_file
+    fi
 done
 
 echo "Script finished at $(date)"
