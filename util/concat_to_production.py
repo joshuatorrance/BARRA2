@@ -11,22 +11,22 @@ from shutil import move
 
 ## PARAMETERS
 # AMSR-2
-if False:
+if True:
     INPUT_DIR = "/g/data/hd50/barra2/data/obs/amsr2"
     TYPE = "amsr"
-    OUTPUT_FILENAME = TYPE + "_{dt_str}.bufr"
-    SYMLINK_FILENAME = "AMSR2_1.bufr"
+    OUTPUT_FILENAME = "AMSR2_1.bufr"
+    SYMLINK_FILENAME = None
 
 # JMA Winds
-if True:
+if False:
     INPUT_DIR = "/scratch/hd50/jt4085/jma_wind/bufr"
     TYPE = "satwind"
     OUTPUT_FILENAME = "mtsat_{dt_str}.bufr"
     SYMLINK_FILENAME = "JMAWINDS_1.bufr"
 
 # Output
-#OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
-OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
+OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
+#OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
 
 TEMP_SUFFIX = ".temp"
 
@@ -90,14 +90,16 @@ def main():
                     # Move the temp file to the output file
                     move(temp_out_filepath, out_filepath)
 
-                    # Create a symlink to the outfile
-                    symlink_filepath = join(out_dir, SYMLINK_FILENAME)
 
-                    if exists(symlink_filepath):
-                        # Delete the symlink if it already exists
-                        remove(symlink_filepath)
+                    if SYMLINK_FILENAME:
+                        # Create a symlink to the outfile
+                        symlink_filepath = join(out_dir, SYMLINK_FILENAME)
 
-                    symlink(out_filepath, symlink_filepath)
+                        if exists(symlink_filepath):
+                            # Delete the symlink if it already exists
+                            remove(symlink_filepath)
+
+                        symlink(out_filepath, symlink_filepath)
                 else:
                     print("\t\t\tNo input files in bin.")
 
