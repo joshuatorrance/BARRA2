@@ -1,15 +1,15 @@
 #!/bin/sh
 
-DATA_DIR="data"
+DATA_DIR="/g/data/hd50/barra2/data/obs/amsr2"
 
 for year in `ls $DATA_DIR`
 do
-    if [ $year -eq "2018" ]
-    then
+    year_dir=$DATA_DIR/$year
+
+    if [[ $1 != $year ]]; then
+        echo "Year doesn't match argument, skipping."
         continue
     fi
-
-    year_dir=$DATA_DIR/$year
 
     for month in `ls $year_dir`
     do
@@ -17,7 +17,7 @@ do
 
         for bin in `ls $month_dir`
         do
-            if [[ $bin != *".tar.xz" ]]
+            if [[ $bin != *".tar.gz" ]]
             then
                 bin_dir=$month_dir/$bin
 
@@ -25,10 +25,19 @@ do
                 echo "  Compressing..."
 
                 # Jump into the bin directory to ensure a clean tarball
-                current_working_dir=`pwd`
                 cd $bin_dir
-                tar -cvJf $month_dir/$bin.tar.xz *.bufr
-                cd $current_working_dir
+
+                # Output to a temporary file
+                out_file="$month_dir/$bin.tar.gz"
+                temp_out_file="$out_file.temp"
+
+                tar -cvzf $temp_out_file *.bufr
+
+                # Move the temp file to the true output file
+                mv $temp_out_file $out_file
+
+                # Return to the previous directory
+                cd -
 
                 if [ $? -eq 0 ]
                 then
