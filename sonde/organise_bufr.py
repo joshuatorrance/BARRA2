@@ -122,7 +122,7 @@ for file in files:
 
             thisoutdir = os.path.join(outdir, "%04d" % t0.year, "%02d" % t0.month)
             if not os.path.exists(thisoutdir):
-                os.makedirs(thisoutdir)
+                os.makedirs(thisoutdir, exist_ok=True)
             outfile = os.path.join(thisoutdir, bn.replace(tstr, t0.strftime('%Y%m%d%H00')))
 
             # EDIT by JT, if the output file already exists then skip ahead
