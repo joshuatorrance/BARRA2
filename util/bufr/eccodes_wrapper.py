@@ -13,9 +13,11 @@
 # Author: Joshua Torrance
 
 # IMPORTS
-from numpy import ndarray
+from numpy import ndarray, array
 import eccodes as ecc
 from gribapi import errors as grib_errors
+from collections.abc import Iterable
+from datetime import datetime, timezone
 
 
 # CLASSES
@@ -69,6 +71,8 @@ class BufrMessage:
         self.parent_bufr = bufr
         self.message_id = message_id
 
+        ecc.codes_set(self.message_id, 'compressedData', 1)
+
         ecc.codes_set(self.message_id, 'unpack', 1)
 
     def get_attributes(self):
@@ -84,7 +88,55 @@ class BufrMessage:
         lat = BufrAttribute(self, "latitude").get_value()
         lon = BufrAttribute(self, "longitude").get_value()
 
+        num = BufrAttribute(self, "numberOfSubsets").get_value()
+        if num > 0 and not isinstance(lat, Iterable):
+            lat = array([lat] * num)
+
+        if num > 0 and not isinstance(lon, Iterable):
+            lon = array([lon] * num)
+            
         return lat, lon
+
+    def get_datetimes(self):
+        pre = "#1#"
+
+        def _get_time_attribute_as_iterable(key_str):
+            value = BufrAttribute(self, pre+key_str).get_value()
+
+            if isinstance(value, Iterable):
+                return value
+            else:
+                return [value]
+
+        year = _get_time_attribute_as_iterable("year")
+        month = _get_time_attribute_as_iterable("month")
+        day = _get_time_attribute_as_iterable("day")
+        hour = _get_time_attribute_as_iterable("hour")
+        minute = _get_time_attribute_as_iterable("minute")
+        second = _get_time_attribute_as_iterable("second")
+
+        dt = []
+
+        # Each datetime parameters is either a len=1 list if the value is
+        # the same for all datetimes or a len=N list if the value changes.
+        # E.g. year = [2015], month = [7], day = [15], hour = [18]
+        #   minute = [1, 1, 1, 2, 2, 2], second = [57, 58, 59, 0, 1, 2]
+        for i in range(len(second)):
+            dt.append(datetime(year=year[min(i, len(year)-1)],
+                               month=month[min(i, len(month)-1)],
+                               day=day[min(i, len(day)-1)],
+                               hour=hour[min(i, len(hour)-1)],
+                               minute=minute[min(i, len(minute)-1)],
+                               second=second[min(i, len(second)-1)],
+                               tzinfo=timezone.utc))
+
+        # If there's only one element multiply by the numberOfSubsets
+        # because sometimes there's the same dt for all the elements
+        if len(dt) == 1:
+            num = BufrAttribute(self, "numberOfSubsets").get_value()
+            dt = dt * num
+
+        return dt
 
 
 class BufrAttributes:
