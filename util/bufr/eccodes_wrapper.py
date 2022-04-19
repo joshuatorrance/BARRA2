@@ -84,6 +84,9 @@ class BufrMessage:
     def get_value(self, key):
         return BufrAttribute(self, key).get_value()
 
+    def get_obs_count(self):
+        return BufrAttribute(self, "numberOfSubsets").get_value()
+
     def get_locations(self):
         lat = BufrAttribute(self, "latitude").get_value()
         lon = BufrAttribute(self, "longitude").get_value()
