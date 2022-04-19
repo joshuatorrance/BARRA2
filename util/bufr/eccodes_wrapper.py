@@ -40,6 +40,13 @@ class BufrFile:
     def get_number_messages(self):
         return ecc.codes_count_in_file(self.file_obj)
 
+    def get_obs_count(self):
+        count = 0
+        for message in self.get_message():
+            count += message.get_obs_count()
+
+        return count
+
 
 class BufrMessages:
     def __init__(self, bufr):
