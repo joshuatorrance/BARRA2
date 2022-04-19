@@ -38,7 +38,9 @@ import random
 import gzip
 from netCDF4 import num2date, date2num
 
-infile_template = '/scratch/hd50/barra2/data/obs/jma/$instrument/%Y%m/%d/%H/$coverage/*$CHANNEL*.gz'
+input_dir = '/scratch/hd50/barra2/data/obs/'
+input_dir = '/scratch/hd50/jt4085/jma_wind/'
+infile_template = input_dir + '$instrument/%Y%m/%d/%H/$coverage/*$CHANNEL*.gz'
 _platforms = ['MTSAT-2', 'MTSAT-1R']
 _time_units = 'days since 1858-11-17 00:00:00'
 _channels = ['VIS', 'IR1', 'IR2', 'IR3', 'IR4']
@@ -46,14 +48,17 @@ _tempdir = '/scratch/hd50/%s' % os.environ['USER']
 
 def find_closest_basetime(t):
     # Data is organised as 0, 6, 12, and 18
-    if t.hour >= 0 and t.hour < 6:
+    # EDIT by JT: 5.99 is not closest to 0... it's closest to 6
+    if t.hour >= 0 and t.hour < 3:
         bt = dt(t.year, t.month, t.day, 0)
-    elif t.hour >= 6 and t.hour < 12:
+    elif t.hour >= 3 and t.hour < 9:
         bt = dt(t.year, t.month, t.day, 6)
-    elif t.hour >= 12 and t.hour < 18:
+    elif t.hour >= 9 and t.hour < 15:
         bt = dt(t.year, t.month, t.day, 12)
-    else:
+    elif t.hour >= 15 and t.hour < 21:
         bt = dt(t.year, t.month, t.day, 18)
+    else:
+        bt = dt(t.year, t.month, t.day, 0) + delt(days=1)
 
     return bt
 
