@@ -42,7 +42,7 @@ class BufrFile:
 
     def get_obs_count(self):
         count = 0
-        for message in self.get_message():
+        for message in self.get_messages():
             count += message.get_obs_count()
 
         return count
