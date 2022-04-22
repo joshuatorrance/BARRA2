@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Top directory to work in
-HEAD_DIR=/g/data/hd50/barra2/data/obs/amsr2
+HEAD_DIR=/scratch/hd50/jt4085/amsr2/hdf
+
+# Output directory
+OUT_DIR=/g/data/hd50/barra2/data/obs/amsr2
 
 # Converter script - sets env and runs converter
 CONVERSION_SCRIPT=/g/data/hd50/jt4085/BARRA2/amsr2/run_converter.sh
@@ -22,20 +25,35 @@ fi
 # Filter with characters about the *
 # TODO: add some more checking on the loops to ensure matches are actually dirs
 for year_dir in $HEAD_DIR/*$year; do
-    echo Year: `basename $year_dir`
+    y=`basename $year_dir`
+    echo "Year: $y"
 
     for month_dir in $year_dir/*; do
-        echo -e "\tMonth:" `basename $month_dir`
+        m=`basename $month_dir`
+        echo -e "  Month: $m"
 
         for bin_dir in $month_dir/*; do
+            bin=`basename $bin_dir`
+            echo -e "    Bin: $bin"
 
-            for hdf_file in $bin_dir/*.h5; do
-                echo -e "\t\t" `basename $hdf_file`
+            d="${bin[@]:6:2}"
+            hour="${bin[@]:9:2}"
+            minute="${bin[@]:11:2}"
+            ts=`date --date="${y}-${m}-${d}T${hour}:${minute}" '+%s'`
+            file_str=`date --date="@$(($ts - 3*60*60))" "+%Y%m%d%H%M"`
+            for hdf_file in $bin_dir/*$file_str*.h5; do
+                hdf_filename=`basename $hdf_file`
+                echo -e "      $hdf_filename"
 
-                bufr_file=$(sed -e "s/.h5/.bufr/g" <<< $hdf_file)
+                bufr_filename=$(sed -e "s/.h5/.bufr/g" <<< $hdf_filename)
+
+                out_file="$OUT_DIR/$y/$m/$bin/$bufr_filename"
 
                 # Run the script, silence stdout
-                $CONVERSION_SCRIPT -i $hdf_file -o $bufr_file > /dev/null &
+                echo "$hdf_file"
+                echo "$hdf_file" >&2
+                python3 /g/data/hd50/jt4085/BARRA2/amsr2/fix_hdf.py $hdf_file
+                $CONVERSION_SCRIPT -i $hdf_file -o $out_file > /dev/null &
                 
                 # Increment the thread count
                 ((thread_count++))
