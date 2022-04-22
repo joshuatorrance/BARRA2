@@ -80,7 +80,12 @@ class BufrMessage:
 
         ecc.codes_set(self.message_id, 'compressedData', 1)
 
-        ecc.codes_set(self.message_id, 'unpack', 1)
+        try:
+            ecc.codes_set(self.message_id, 'unpack', 1)
+        except grib_errors.FunctionNotImplementedError as e:
+            #print("Failed to 'unpack', FunctionNotImplementedError:", e)
+            # Trying again, sometimes it works the second time.
+            ecc.codes_set(self.message_id, 'unpack', 1)
 
     def get_attributes(self):
         return BufrAttributes(self)
@@ -95,8 +100,12 @@ class BufrMessage:
         return BufrAttribute(self, "numberOfSubsets").get_value()
 
     def get_locations(self):
-        lat = BufrAttribute(self, "latitude").get_value()
-        lon = BufrAttribute(self, "longitude").get_value()
+        try:
+            lat = BufrAttribute(self, "latitude").get_value()
+            lon = BufrAttribute(self, "longitude").get_value()
+        except ValueError:
+            lat = BufrAttribute(self, "localLatitude").get_value()
+            lon = BufrAttribute(self, "localLongitude").get_value()
 
         num = BufrAttribute(self, "numberOfSubsets").get_value()
         if num > 0 and not isinstance(lat, Iterable):
