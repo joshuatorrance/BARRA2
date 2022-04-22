@@ -1,0 +1,5 @@
+set unpack=1;
+set simpleThinningSkip=2;
+set doSimpleThinning=1;
+ 
+write;
