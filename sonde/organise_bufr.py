@@ -10,6 +10,7 @@ module load eccodes
 
 """
 import os, sys
+from time import time
 import numpy as np
 import glob
 from datetime import datetime as dt
@@ -17,10 +18,79 @@ from datetime import timedelta as delt
 import subprocess
 import shutil
 
+print("Starting organise_bufr.py")
+
 indir = sys.argv[1]
 outdir = sys.argv[2]
 files = glob.glob(os.path.join(indir, '*.bufr'))
 files.sort()
+
+print("Input directory:", indir)
+print("Output directory:", outdir)
+
+# EDIT by JT, added command line args for min and/or max year bounds
+if len(sys.argv)>=5:
+    end_year_filter = int(sys.argv[4])
+else:
+    # Otherwise set end_year to max int
+    end_year_filter = sys.maxsize
+
+if len(sys.argv)>=4:
+    start_year_filter = int(sys.argv[3])
+else:
+    # Default to the start of BARRA stage 1
+    start_year_filter = 2007
+
+print("Starting year:", start_year_filter)
+print("Ending year:", end_year_filter)
+
+
+# EDIT by JT, filter files based on BARRA2 region using station list.
+STATION_LIST_PATH = "/g/data/hd50/barra2/data/obs/igra/doc/igra2-station-list.txt"
+WEST = 90
+EAST = 210 - 360
+NORTH = 15
+SOUTH = -60
+def grep(file_path, regex):
+    # Just use grep itself.
+    ret = subprocess.run(["grep", regex, file_path], capture_output=True)
+
+    # Decode from bytes string and return
+    return ret.stdout.decode("utf-8")
+
+def get_station_location(station_name):
+    station_line = grep(STATION_LIST_PATH, station_name)
+
+    lat = float(station_line[12:20])
+    lon = float(station_line[21:30])
+
+    # Check if lat/lon are mobile stations
+    if lat == -98.8888:
+        lat = None
+    if lon == -998.8888:
+        lon = None
+
+    return lat, lon
+
+remove_from_list = []
+for f in files:
+    station_name = os.path.basename(f)[:11]
+    lat, lon = get_station_location(station_name)
+
+    if lat is None and lon is None:
+        # Mobile station, do nothing
+        pass
+    elif SOUTH < lat < NORTH and \
+        ( WEST < EAST and WEST < lon < EAST ) or \
+        ( WEST > EAST and ( WEST < lon or lon < EAST ) ):
+        # E/W loops around, so boundary can loop over too
+        # Inside BARRA2 region, do nothing
+        pass
+    else:
+        # Outside BARRA2 region, don't remove from file list
+        remove_from_list.append(f)
+
+files = [f for f in files if f not in remove_from_list]
 
 # EDIT by JT, made filter_extract a full path and a variable
 #  doing the same for filter_localtime
@@ -59,6 +129,10 @@ for file in files:
     validtimes = np.unique(output.stdout.strip().split('\n'))
     try:
         validtimes = [dt.strptime(t, '%Y%m%d%H%M') for t in validtimes]
+
+        # EDIT by JT - filtering to BARRA2 stage 1 time period
+        validtimes = [dt for dt in validtimes if \
+                      start_year_filter <= dt.year < end_year_filter]
     except Exception as e:
         print(e)
         validtimes2 = []
@@ -69,6 +143,8 @@ for file in files:
                 print(e)
                 continue
         validtimes = validtimes2
+
+    print("Valid time is length:", len(validtimes))
 
     windows = []
     for t in validtimes:
@@ -106,7 +182,7 @@ for file in files:
         outfile = tmpfile
         print("Copying to {:}".format(outfile))
         shutil.copy(file, outfile)
-    else:
+    elif len(windows) > 1:
         for t0 in windows:
             t0i = t0 - delt(hours=3)
             t0j = t0 + delt(hours=2)
@@ -138,6 +214,8 @@ for file in files:
                     break
             outfile = tmpfile
 
+            print("Updating filter...", end='')
+            start_time = time()
             update_filter = filter_text.replace('$START_YEAR', start_year).replace('$START_MONTH', start_month).replace('$START_DAY', start_day).replace('$START_HOUR', start_hour).replace('$END_YEAR', end_year).replace('$END_MONTH', end_month).replace('$END_DAY', end_day).replace('$END_HOUR', end_hour)
 
             filter_file = 'tmpfilter.%s' % t0.strftime('%Y%m%d%H')
@@ -145,16 +223,25 @@ for file in files:
             ff.write(update_filter)
             ff.close()
 
+            end_time = time()
+            print("done took {}s".format(end_time-start_time))
+
             # EDIT by JT, output to temporary file, then copy to final
             #    to allow for simpler recovery if interrupted
             temporary_outfile = outfile + ".temp"
 
-            output = subprocess.run(["bufr_filter", filter_file, file, '-o', temporary_outfile], capture_output=True, text=True, check=True)
+            print("Starting bufr_filter...", end='')
+            start_time = time()
+            subprocess.run(["bufr_filter", filter_file, file, '-o', temporary_outfile], capture_output=False, text=True, check=True)
+            end_time = time()
+            print("done took {}s".format(end_time-start_time))
 
             shutil.move(temporary_outfile, outfile)
 
             print("Extracting to {:}".format(outfile))
 
             os.remove(filter_file)
+    else:
+        print("Nothing to process.")
 
 print("SUCCESS: DONE!")

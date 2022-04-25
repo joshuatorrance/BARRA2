@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -P dp9
+#PBS -P hd50
 #PBS -l ncpus=1
 #PBS -l mem=10gb
 #PBS -l walltime=24:00:00
@@ -18,15 +18,20 @@ module load eccodes3
 script_path=/g/data/hd50/jt4085/BARRA2/sonde/organise_bufr.py
 output_dir=/scratch/hd50/jt4085/sonde/data-bufr-bins
 
+temp_root_dir="temp/$start_year"
+
 # Run script for each file path supplied
 echo "files list:"
+echo "start year: $start_year"
+echo "end year: $end_year"
+
 for f in $files_list; do
     echo -e "\t$f"
 
     # Make a temporary directory to work in.
     # Grab the first 11 characters of the name which happen
     #   to be the station ID
-    temp_dir="temp/$(basename $f | head -c11)"
+    temp_dir="$temp_root_dir/$(basename $f | head -c11)"
 
     echo "Creating temporary directory: $temp_dir"
     mkdir -p $temp_dir
@@ -39,7 +44,7 @@ for f in $files_list; do
 
     # Now run the script
     #  We're in the temporary dir so . as $temp_dir is not an absolute path
-    python3 $script_path . $output_dir
+    python3 $script_path . $output_dir $start_year $end_year
 
     # Return to the previous directory
     echo "Returning to starting directory."
