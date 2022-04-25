@@ -20,6 +20,7 @@ from jma_interface import get_wind_data
 
 # PARAMETERS
 
+
 # METHODS
 def get_obs_count(filepath, filter_centre_freqs=None):
     with BufrFile(filepath) as bufr:
@@ -38,6 +39,7 @@ def get_obs_count(filepath, filter_centre_freqs=None):
                         break
 
     return obs_count
+
 
 def get_locations(filepath, filter_centre_freqs=None):
     latitude = []
@@ -91,10 +93,11 @@ def get_wind_speed(filepath):
         for msg in bufr.get_messages():
             ws = msg.get_value("#1#windSpeed")
 
-            if len(ws)>1:
+            if len(ws) > 1:
                 wind_speeds += ws.tolist()
 
     return array(wind_speeds)
+
 
 def get_centre_freqs(filepath):
     central_freqs = []
@@ -105,6 +108,7 @@ def get_centre_freqs(filepath):
             central_freqs.append(central_freq)
 
     return array(central_freqs)
+
 
 # SCRIPT
 def main1():
@@ -120,10 +124,10 @@ def main1():
     INPUT_DIR2 = "/g/data/hd50/barra2/data/obs/production"
     INPUT_FILE_PATH2 = "{in_dir}/{year}/{month:02}/{year}{month:02}{day:02}T{hour:02}00Z/bufr/satwind/mtsat2"
 
-    INPUT_FILE_PATH1 = INPUT_FILE_PATH1.format(in_dir=INPUT_DIR1,
-        year=YEAR, month=MONTH, day=DAY, hour=HOUR)
-    INPUT_FILE_PATH2 = INPUT_FILE_PATH2.format(in_dir=INPUT_DIR2,
-        year=YEAR, month=MONTH, day=DAY, hour=HOUR)
+    INPUT_FILE_PATH1 = INPUT_FILE_PATH1.format(in_dir=INPUT_DIR1, year=YEAR,
+                                               month=MONTH, day=DAY, hour=HOUR)
+    INPUT_FILE_PATH2 = INPUT_FILE_PATH2.format(in_dir=INPUT_DIR2, year=YEAR,
+                                               month=MONTH, day=DAY, hour=HOUR)
 
     # Get raw CSV data
     start_dt = datetime(year=YEAR, month=MONTH, day=DAY, hour=HOUR) \
@@ -155,7 +159,6 @@ def main1():
                     else:
                         raw_data = raw[key]
 
-    
     raw_dts = raw_data['time(mjd)']
 
     raw_wind_speeds = (raw_data["u (m/s)"]**2 + raw_data["v (m/s)"]**2)**0.5
@@ -184,7 +187,6 @@ def main1():
     print("\tStd:", wss1.std())
     print("\tMin:", wss1.min())
     print("\tMax:", wss1.max())
-
 
     # Get Prod data
     print("\nBUFR Data from production:")
@@ -220,7 +222,7 @@ def main1():
     plt.ylabel("Wind Speed (m/s)")
 
     # Plot time against array index
-    fig = plt.figure(2)
+    plt.figure(2)
     ax1 = plt.gca()
     ax2 = ax1.twiny()
     ax1.plot(raw_dts, ',', color='C0')
@@ -234,12 +236,12 @@ def main1():
     # Plot dt vs lon
     lon1_offset = lon1.copy()
     for i in range(len(lon1_offset)):
-        if lon1_offset[i]<0:
+        if lon1_offset[i] < 0:
             lon1_offset[i] = lon1_offset[i] + 360
 
     lon2_offset = lon2.copy()
     for i in range(len(lon2_offset)):
-        if lon2_offset[i]<0:
+        if lon2_offset[i] < 0:
             lon2_offset[i] = lon2_offset[i] + 360
         
     plt.figure(5)
@@ -282,7 +284,7 @@ def main1():
 
     # Use prod central freqs to filter converted lat/lon
     lat1_f, lon1_f = get_locations(INPUT_FILE_PATH1,
-        filter_centre_freqs=[central_freqs2[0]])
+                                   filter_centre_freqs=[central_freqs2[0]])
 
     plt.scatter(lon1_f, lat1_f, marker='x')
 
@@ -350,7 +352,6 @@ def main2():
                 converted_obs_count = 0
                 prod_obs_count = 0
 
-
                 files = glob(join(dt_dir, "*.bufr"))
                 files.sort()
                 for f_path in files:
@@ -370,16 +371,15 @@ def main2():
                     prod_obs_count = get_obs_count(prod_file_path)
                     print("done.")
 
-
                 datetimes.append(date_time)
                 converted_obs_counts.append(converted_obs_count)
                 prod_obs_counts.append(prod_obs_count)
 
-                if len(converted_obs_counts)>limit:
+                if len(converted_obs_counts) > limit:
                     break
-            if len(converted_obs_counts)>limit:
+            if len(converted_obs_counts) > limit:
                 break
-        if len(converted_obs_counts)>limit:
+        if len(converted_obs_counts) > limit:
             break
 
     plt.plot(datetimes, converted_obs_counts, label="Converted")
@@ -390,9 +390,7 @@ def main2():
     plt.legend()
 
     plt.show()
-                    
 
 
 if __name__ == "__main__":
     main1()
-

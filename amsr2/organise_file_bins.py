@@ -170,4 +170,3 @@ if __name__ == "__main__":
         bin_dir(directory, do_dry_run)
     else:
         print("Unknown mode. Exiting.")
-

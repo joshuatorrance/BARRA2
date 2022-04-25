@@ -1,4 +1,4 @@
-# This script was authored by Chun-Hse
+# This script was authored by Chun-Hsu
 # JT made a copy so that a couple of details could be tweaked.
 """
  To use, load the environment first

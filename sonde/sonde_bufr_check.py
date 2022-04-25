@@ -32,12 +32,14 @@ INPUT_FILE_PATH2 = "{input_dir}/{year}/{month:02}/{year}{month:02}{day}T{hour:02
 
 STATION_LIST_PATH = "/g/data/hd50/barra2/data/obs/igra/doc/igra2-station-list.txt"
 
+
 # METHODS
 def get_obs_count(filepath):
     with BufrFile(filepath) as bufr:
         obs_count = bufr.get_obs_count()
 
     return obs_count
+
 
 def get_locations(filepath):
     latitude = []
@@ -51,12 +53,14 @@ def get_locations(filepath):
 
     return array(latitude), array(longitude)
 
+
 def grep(file_path, regex):
     # Just use grep itself.
     ret = run(["grep", regex, file_path], capture_output=True)
 
     # Decode from bytes string and return
     return ret.stdout.decode("utf-8")
+
 
 def get_station_location(station_name):
     station_line = grep(STATION_LIST_PATH, station_name)    
@@ -81,7 +85,7 @@ def get_attribute_number_array(file_path, key):
 
             if not isinstance(values, Iterable):
                 values = [values]
-            elif values=="MISSING":
+            elif values == "MISSING":
                 values = [float("NaN")]
 
             if arr is not None:
@@ -127,13 +131,13 @@ def main():
 
                         print("\tObs Count:", obs_c)
 
-                        airTemp = get_attribute_number_array(f, "airTemperature")
-                        print("airTemp")
-                        print(airTemp)
-                        print("\tMean:", nanmean(airTemp))
-                        print("\tStd:", nanstd(airTemp))
-                        print("\tMin:", nanmin(airTemp))
-                        print("\tMax:", nanmax(airTemp))
+                        air_temp = get_attribute_number_array(f, "airTemperature")
+                        print("air_temp")
+                        print(air_temp)
+                        print("\tMean:", nanmean(air_temp))
+                        print("\tStd:", nanstd(air_temp))
+                        print("\tMin:", nanmin(air_temp))
+                        print("\tMax:", nanmax(air_temp))
 
                     prod_obs_count.append(obs_count)
 
@@ -142,7 +146,7 @@ def main():
                     for f in glob(input_1):
                         print(basename(f))
 
-                        station_name =  basename(f)[:11]
+                        station_name = basename(f)[:11]
                         station_lat, station_lon = \
                             get_station_location(station_name)
 
@@ -159,7 +163,6 @@ def main():
                         print("\tObs Count:", obs_c)
 
                     converted_obs_count.append(obs_count)
-
 
     plt.xlim((-180, 180))
     plt.ylim((-90, 90))
@@ -186,4 +189,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
