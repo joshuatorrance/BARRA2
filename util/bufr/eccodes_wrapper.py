@@ -108,10 +108,10 @@ class BufrMessage:
             lon = BufrAttribute(self, "localLongitude").get_value()
 
         num = BufrAttribute(self, "numberOfSubsets").get_value()
-        if num > 0 and not isinstance(lat, Iterable):
+        if num > 1 and not isinstance(lat, Iterable):
             lat = array([lat] * num)
 
-        if num > 0 and not isinstance(lon, Iterable):
+        if num > 1 and not isinstance(lon, Iterable):
             lon = array([lon] * num)
             
         return lat, lon
@@ -123,7 +123,10 @@ class BufrMessage:
             value = BufrAttribute(self, pre+key_str).get_value()
 
             if isinstance(value, Iterable):
-                return value
+                if isinstance(value, str) and value=="MISSING":
+                    return [0]
+                else:
+                    return value
             else:
                 return [value]
 
