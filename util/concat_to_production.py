@@ -4,32 +4,77 @@
 
 ## IMPORTS
 from glob import glob
-from os import makedirs, symlink, remove
-from os.path import join, basename, normpath, exists, getsize
+from os import makedirs, symlink, readlink, remove
+from os.path import join, basename, normpath, exists, \
+     getsize, islink, isabs, dirname
 from shutil import move
 
 
 ## PARAMETERS
 # AMSR-2
-if True:
+if False:
     INPUT_DIR = "/g/data/hd50/barra2/data/obs/amsr2"
     TYPE = "amsr"
     OUTPUT_FILENAME = "AMSR2_1.bufr"
+
     SYMLINK_FILENAME = None
+    CREATE_SYMLINK = False
 
 # JMA Winds
-if False:
+if True:
     INPUT_DIR = "/scratch/hd50/jt4085/jma_wind/bufr"
     TYPE = "satwind"
-    OUTPUT_FILENAME = "mtsat_{dt_str}.bufr"
-    SYMLINK_FILENAME = "JMAWINDS_1.bufr"
+    OUTPUT_FILENAME = "JMAWINDS_1.bufr"
+
+    CREATE_SYMLINK = False
+    SYMLINK_FILENAME = "JMAWINDS_{index}.bufr"
+
+    OLD_FILE_ARCHIVE_DIR = "/scratch/hd50/jt4085/jma_wind/old_production_bufrs"
 
 # Output
-OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
-#OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
+#OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
+OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
 
 TEMP_SUFFIX = ".temp"
 
+
+## FUNCTIONS
+def archive_symlink_targets(symlink_path, archive_dir):
+    print("\t\t\tArchiving old files...")
+
+    # Find the symlinks that match symlink_path (can contain wildcards *)
+    symlink_paths = glob(symlink_path)
+
+    if len(symlink_paths) == 0:
+        print("\t\t\t\tNo files found to archive.")
+
+    for syml_path in symlink_paths:
+        print("\t\t\t\tArchiving", basename(syml_path))
+        if islink(syml_path):
+            # Find the symlink's target
+            target_path = readlink(syml_path)
+            if not isabs(target_path):
+                # Path is not absolute, join it to the sym link's dir
+                target_path = join(dirname(syml_path), target_path)
+
+            print("\t\t\t\t" + basename(syml_path),
+                  "points to", basename(target_path))
+
+            if exists(target_path):
+                print("\t\t\t\tMoving", basename(target_path), "to archive.")
+                # Move the target to the archive
+                # Specify the full path to the dest so move will overwrite
+                dest_path = join(archive_dir, basename(target_path))
+                makedirs(archive_dir, exist_ok=True)
+                move(target_path, dest_path)
+            else:
+                print("\t\t\t\tTarget doesn't exist:", target_path)
+
+            # Symlink no longer points to anything so clean it up
+            print("\t\t\t\tDeleting link", basename(syml_path))
+            remove(syml_path)
+
+            print()
 
 
 ## SCRIPT
@@ -54,14 +99,33 @@ def main():
             for dt_dir in dts:
                 dt = basename(dt_dir)
 
+                # Add the missing 'Z' to the datetime if needed
+                if dt[-1] != 'Z':
+                    dt = dt + 'Z'
+
                 print("\t\t", dt)
+
+                # Find the corresponding output dir
+                out_dir = join(OUTPUT_DIR, y, m, dt, "bufr", TYPE)
+
+                # If needed, archive files already in production
+                # Archive files even if there aren't any new files.
+                # TODO: This is not foolproof, if an entire bin is missing
+                #  in the source dir then the corresponding dest will not be
+                #  be archived.
+                if OLD_FILE_ARCHIVE_DIR:
+                    archive_dir = join(OLD_FILE_ARCHIVE_DIR,
+                                       y, m, dt)
+
+                    symlink_wildcard_path = join(out_dir,
+                        SYMLINK_FILENAME.format(index="*"))
+
+                    archive_symlink_targets(symlink_wildcard_path,
+                                            archive_dir)
 
                 fs = glob(join(dt_dir, "*.bufr"))
                 fs.sort()
                 if len(fs) > 0:
-                    # Find the corresponding output dir
-                    out_dir = join(OUTPUT_DIR, y, m, dt, "bufr", TYPE)
-
                     # If the output directory doesn't exist create it.
                     makedirs(out_dir, exist_ok=True)
 
@@ -91,9 +155,12 @@ def main():
                     move(temp_out_filepath, out_filepath)
 
 
-                    if SYMLINK_FILENAME:
+                    if CREATE_SYMLINK and SYMLINK_FILENAME:
+                        # Replace the wildcard (if present) with the file index
+                        symlink_file = SYMLINK_FILENAME.format(index=1)
+
                         # Create a symlink to the outfile
-                        symlink_filepath = join(out_dir, SYMLINK_FILENAME)
+                        symlink_filepath = join(out_dir, symlink_file)
 
                         if exists(symlink_filepath):
                             # Delete the symlink if it already exists
@@ -106,4 +173,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    print("Script finished.")
 
