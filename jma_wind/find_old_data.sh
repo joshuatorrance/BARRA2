@@ -5,27 +5,40 @@
 # the archive, not the newly reprocessed data from JMA.
 
 PROD_DIR=/g/data/hd50/barra2/data/obs/production
+ARCHIVE_DIR=/scratch/hd50/jt4085/jma_wind/old_production_bufrs/
 
-for y in {2005..2015}; do
+for y in {2015..2016}; do
     echo $y
 
     y_dir=$PROD_DIR/$y
 
-    link_list=`find $y_dir -name JMAWINDS_*.bufr -type l | head -n 2`
+    for m in {01..12}; do
+        m_dir=$PROD_DIR/$y/$m
+        echo -e "\t$m"
 
-    for f in $link_list; do
-        target_f=`readlink -f $f`
+        for dt_dir in $m_dir/*/; do
+            dt=`basename $dt_dir`
+            echo -e "\t\t$dt"
 
-        echo $f
-        echo $target_f
+            archive_dt_dir=$ARCHIVE_DIR$y/$m/$dt
 
-        exit 0
+            link_list=`find $dt_dir -name JMAWINDS_*.bufr -type l`
 
-        # TODO: Delete files by uncommenting the rm below once tested.
-        # rm $f
-        # rm $target_f
+            for f in $link_list; do
+                target_f=`readlink -f $f`
 
-        # TODO: alternatively move them to the archive - need to extract datetime
+                # Archive files by uncommenting the rm below once tested.
+                echo -e "\t\t\tArchiving file "`basename $target_f`
+                mkdir -p $archive_dt_dir
+                mv $target_f $archive_dt_dir
+
+                echo -e "\t\t\tDeleting link "`basename $f`
+                rm $f
+
+                echo
+            done
+        done
     done
-
 done
+
+echo "Script finished at $(date)"
