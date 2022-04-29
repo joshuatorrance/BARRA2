@@ -170,7 +170,7 @@ def data_to_bufr(data, output_file,
 
             # Originating Centre - JMA - 34
             # Turns out this needs to be set for every subset.
-            ecc.codes_set_array(output_bufr, 'centre', [34]*d_len)
+            ecc.codes_set_array(output_bufr, '#1#centre', [34]*d_len)
 
             # Set the data arrays
             set_arrays_for_dataframe(dataframe, output_bufr)
