@@ -169,7 +169,8 @@ def data_to_bufr(data, output_file,
                           sat_bandwidth_fq)
 
             # Originating Centre - JMA - 34
-            ecc.codes_set(output_bufr, 'centre', 34)
+            # Turns out this needs to be set for every subset.
+            ecc.codes_set_array(output_bufr, 'centre', [34]*d_len)
 
             # Set the data arrays
             set_arrays_for_dataframe(dataframe, output_bufr)
