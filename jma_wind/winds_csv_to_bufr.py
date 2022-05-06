@@ -64,6 +64,8 @@ DATA_PRESENT_BITMAP = [
 # SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
 SATELLITE_NAMES = ["MTSAT-1R", "MTSAT-2"]
 CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
+# OPS only uses VIS, IR2 and IR3
+CHANNEL_NAMES = ["VIS", "IR1", "IR3"]
 SATELLITES = {"GMS-5": {
                 "id": 152,
                 "VIS": {"centre": 0.72, "bandwidth": 0.35},
@@ -161,12 +163,22 @@ def data_to_bufr(data, output_file,
             sat_bandwidth_fq = c / (sat_centre_wl - 0.5 * sat_bandwidth_wl) - \
                                c / (sat_centre_wl + 0.5 * sat_bandwidth_wl)
 
-            ecc.codes_set(output_bufr, 'satelliteID', sat_id)
-            ecc.codes_set(output_bufr, 'satelliteIdentifier', sat_id)
-            ecc.codes_set(output_bufr, 'satelliteChannelCentreFrequency',
-                          sat_centre_fq)
-            ecc.codes_set(output_bufr, 'satelliteChannelBandWidth',
-                          sat_bandwidth_fq)
+            ecc.codes_set(output_bufr, 'satelliteID',
+                          sat_id)
+            ecc.codes_set_array(output_bufr, 'satelliteIdentifier',
+                                [sat_id]*d_len)
+            ecc.codes_set_array(output_bufr, 'satelliteChannelCentreFrequency',
+                                [sat_centre_fq]*d_len)
+            ecc.codes_set_array(output_bufr, 'satelliteChannelBandWidth',
+                                [sat_bandwidth_fq]*d_len)
+
+            # Computation method seems to depend on channel
+            # Options here - https://confluence.ecmwf.int/display/ECC/WMO%3D14+code-flag+table#WMO=14codeflagtable-CF_002023
+            # Apparently this should be 3?
+            computationMethod = 3
+            ecc.codes_set_array(output_bufr,
+                                'satelliteDerivedWindComputationMethod',
+                                [computationMethod]*d_len)
 
             # Originating Centre - JMA - 34
             # Turns out this needs to be set for every subset.
@@ -230,9 +242,65 @@ def set_arrays_for_dataframe(dataframe, output_bufr):
     # TODO: What does the QI apply to?
     #           Measurement (u & v)? Coordinates (lat, lon, pres)?
     ecc.codes_set_array(output_bufr, '#1#windSpeed->percentConfidence',
-                        (100 * dataframe['QI not using NWP']).to_numpy())
+                        (100 * dataframe['QI using NWP']).to_numpy())
     ecc.codes_set_array(output_bufr, '#1#windDirection->percentConfidence',
-                        (100 * dataframe['QI not using NWP']).to_numpy())
+                        (100 * dataframe['QI using NWP']).to_numpy())
+
+    # Setting more quality info to try to get things working
+    # TODO: Figure this out and do it properly
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->percentConfidence',
+        (100 * dataframe['QI using NWP']).to_numpy())
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->percentConfidence->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#pressure->nominalConfidenceThreshold->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+
+    ecc.codes_set_array(output_bufr,
+        '#1#windSpeed->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+    ecc.codes_set_array(output_bufr,
+        '#1#windSpeed->percentConfidence->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+
+    ecc.codes_set_array(output_bufr,
+        '#1#windSpeed->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#windSpeed->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#windSpeed->nominalConfidenceThreshold->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+
+    ecc.codes_set_array(output_bufr,
+        '#1#windDirection->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+    ecc.codes_set_array(output_bufr,
+        '#1#windDirection->percentConfidence->percentConfidence->percentConfidence',
+        (100 * dataframe['QI not using NWP']).to_numpy())
+    
+    ecc.codes_set_array(output_bufr,
+        '#1#windDirection->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#windDirection->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
+    ecc.codes_set_array(output_bufr,
+        '#1#windDirection->nominalConfidenceThreshold->nominalConfidenceThreshold->nominalConfidenceThreshold',
+        [0]*len(dataframe))
 
     # Satellite Zenith Angle
     ecc.codes_set_array(output_bufr, 'satelliteZenithAngle',
