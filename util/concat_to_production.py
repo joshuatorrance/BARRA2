@@ -7,7 +7,9 @@ from glob import glob
 from os import makedirs, symlink, readlink, remove
 from os.path import join, basename, normpath, exists, \
      getsize, islink, isabs, dirname
+from sys import argv
 from shutil import move
+from datetime import datetime
 
 
 ## PARAMETERS
@@ -20,8 +22,13 @@ if False:
     SYMLINK_FILENAME = None
     CREATE_SYMLINK = False
 
+    OLD_FILE_ARCHIVE_DIR = None
+
+    START_DT = None
+    END_DT = None
+
 # JMA Winds
-if True:
+if False:
     INPUT_DIR = "/scratch/hd50/jt4085/jma_wind/bufr"
     TYPE = "satwind"
     OUTPUT_FILENAME = "JMAWINDS_1.bufr"
@@ -29,11 +36,28 @@ if True:
     CREATE_SYMLINK = False
     SYMLINK_FILENAME = "JMAWINDS_{index}.bufr"
 
-    OLD_FILE_ARCHIVE_DIR = "/scratch/hd50/jt4085/jma_wind/old_production_bufrs"
+    OLD_FILE_ARCHIVE_DIR = None #"/scratch/hd50/jt4085/jma_wind/old_production_bufrs"
+
+    START_DT = None
+    END_DT = None
+
+# Sonde
+if True:
+    INPUT_DIR = "/scratch/hd50/jt4085/sonde/data-bufr-bins"
+    TYPE = "sonde"
+    OUTPUT_FILENAME = "TEMP_1.bufr"
+
+    CREATE_SYMLINK = False
+    SYMLINK_FILENAME = "TEMP_{index}.bufr"
+
+    OLD_FILE_ARCHIVE_DIR = "/scratch/hd50/jt4085/sonde/old_production_bufrs"
+
+    START_DT = datetime(year=int(argv[1]), month=1, day=1)
+    END_DT = datetime(year=int(argv[1]), month=12, day=31)
 
 # Output
-#OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
-OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
+OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
+#OUTPUT_DIR = "/scratch/hd50/jt4085/production_test"
 
 TEMP_SUFFIX = ".temp"
 
@@ -87,6 +111,14 @@ def main():
 
         print("Year:", y)
 
+        if START_DT and int(y) < START_DT.year:
+            print("\tBefore start year, skipping.")
+            continue
+
+        if END_DT and int(y) > END_DT.year:
+            print("\tAfter end year, skipping.")
+            continue
+
         months = glob(join(y_dir, "*"))
         months.sort()
         for m_dir in months:
@@ -94,9 +126,21 @@ def main():
 
             print("\tMonth:", m)
 
+            if START_DT and int(m) < START_DT.month:
+                print("\tBefore start month, skipping.")
+                continue
+
+            if END_DT and int(m) > END_DT.month:
+                print("\tAfter end month, skipping.")
+                continue
+
             dts = glob(join(m_dir, "*"))
             dts.sort()
             for dt_dir in dts:
+                if ".broken" in dt_dir:
+                    # Bad file I can't delete
+                    continue
+
                 dt = basename(dt_dir)
 
                 # Add the missing 'Z' to the datetime if needed
@@ -104,6 +148,14 @@ def main():
                     dt = dt + 'Z'
 
                 print("\t\t", dt)
+
+                if START_DT and int(dt[6:8]) < START_DT.day:
+                    print("\tBefore start month, skipping.")
+                    continue
+
+                if END_DT and int(dt[6:8]) > END_DT.day:
+                    print("\tAfter end month, skipping.")
+                    continue
 
                 # Find the corresponding output dir
                 out_dir = join(OUTPUT_DIR, y, m, dt, "bufr", TYPE)
@@ -135,6 +187,7 @@ def main():
 
                     if exists(out_filepath):
                         print("\t\t\tOutput file already exists skipping")
+#                        print("\t\t\tOutput file already exists overwriting")
                         continue
 
                     # Concatenate the input files into a temp single file
@@ -169,6 +222,7 @@ def main():
                         symlink(out_filepath, symlink_filepath)
                 else:
                     print("\t\t\tNo input files in bin.")
+
 
 
 if __name__ == "__main__":
