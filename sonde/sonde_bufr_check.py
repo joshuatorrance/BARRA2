@@ -21,6 +21,14 @@ path.insert(1, "/g/data/hd50/jt4085/BARRA2/util/bufr")
 from eccodes_wrapper import BufrFile
 
 # PARAMETERS
+# Barra region
+BARRA_LEFT = 90.00
+BARRA_RIGHT = 210.0 - 360
+BARRA_BOTTOM = -60.00
+BARRA_TOP = 15.00
+barra_filter = (BARRA_LEFT, BARRA_RIGHT, BARRA_BOTTOM, BARRA_TOP)
+
+
 YEAR = 2007
 MONTH = 1
 DAY = 21
@@ -30,7 +38,7 @@ INPUT_FILE_PATH1 = "{input_dir}/{year}/{month:02}/*-{year}{month:02}{day:02}{hou
 #INPUT_FILE_PATH = "/scratch/hd50/jt4085/sonde/data-bufr/ZZXUAICE019-data.bufr"
 
 INPUT_DIR2 = "/g/data/hd50/barra2/data/obs/production"
-INPUT_FILE_PATH2 = "{input_dir}/{year}/{month:02}/{year}{month:02}{day}T{hour:02}00Z/bufr/sonde/TEMP_*.bufr"
+INPUT_FILE_PATH2 = "{input_dir}/{year}/{month:02}/{year}{month:02}{day:02}T{hour:02}00Z/bufr/sonde/TEMP_*.bufr"
 
 STATION_LIST_PATH = "/g/data/hd50/barra2/data/obs/igra/doc/igra2-station-list.txt"
 
@@ -39,9 +47,29 @@ TEMP_FILE_PATH = TEMP_FILE_DIR + "/temporary.file"
 
 
 # METHODS
-def get_obs_count(filepath):
+def get_obs_count(filepath, geo_filter=None):
+    # geo_filter should be (left, right, bottom, top)
+    obs_count = 0
     with BufrFile(filepath) as bufr:
-        obs_count = bufr.get_obs_count()
+        for msg in bufr.get_messages():
+            if geo_filter:
+                lat, lon = msg.get_locations()
+                if lat=="MISSING" or lon=="MISSING":
+                    # Something has gone awry
+                    print("Missing lat or lon for:", filepath)
+                    continue
+
+                left, right, bottom, top = geo_filter
+
+                if not (
+                    bottom < lat < top and \
+                    (left < right and (left < lon < right) or \
+                     left > right and (left < lon or lon < right))):
+                    # ^ Watch out for left/right looping
+                    # Outside filter, skip
+                    continue
+
+            obs_count += msg.get_obs_count()
 
     return obs_count
 
@@ -115,7 +143,7 @@ def main():
 #    for y in [2007, 2009, 2010, 2011, 2012, 2013, \
 #              2016, 2017, 2018, 2019, 2021, 2022]:
         for m in range(1, 2):
-            for d in range(1, 32):
+            for d in range(1, 31):
                 for h in [0, 6, 12, 18]:
                     dts.append(datetime(year=y, month=m, day=d, hour=h))
 
@@ -144,34 +172,35 @@ def main():
                                     label="Production")
                         print("done.")
 
-                        obs_c = get_obs_count(f)
+                        obs_c = get_obs_count(f, geo_filter=(barra_filter))
                         obs_count += obs_c
 
                         print("\tObs Count:", obs_c)
 
 
-                        try:
-                            air_temp = get_attribute_number_array(f, "airTemperature")
-                        except ValueError as e:
+#                        try:
+#                            air_temp = get_attribute_number_array(f, "airTemperature")
+#                        except ValueError as e:
                             # This is failing sometimes.
                             # TODO: Figure out why I can't access attributes
                             #  sometimes.
                             # For now fill the array with NaN
-                            print("\tFailed to get air_temp:", e)
-                            air_temp = full(lat.shape, float("nan"))
+#                            print("\tFailed to get air_temp:", e)
+#                            air_temp = full(lat.shape, float("nan"))
 
-                        print("air_temp")
-                        print(air_temp)
-                        print("\tMean:", nanmean(air_temp))
-                        print("\tStd:", nanstd(air_temp))
-                        print("\tMin:", nanmin(air_temp))
-                        print("\tMax:", nanmax(air_temp))
+#                        print("air_temp")
+#                        print(air_temp)
+#                        print("\tMean:", nanmean(air_temp))
+#                        print("\tStd:", nanstd(air_temp))
+#                        print("\tMin:", nanmin(air_temp))
+#                        print("\tMax:", nanmax(air_temp))
 
                     prod_obs_count.append(obs_count)
 
                     print()
                     obs_count = 0
                     for f in glob(input_1):
+                        continue
                         print(basename(f))
 
                         station_name = basename(f)[:11]
@@ -192,10 +221,10 @@ def main():
                                 if station_lon<0 else station_lon
 
                             plt.scatter(station_lon, station_lat,
-                                        marker='x', color="C2")
+                                        marker='.', color="C2")
                         print("done.")
 
-                        obs_c = get_obs_count(f)
+                        obs_c = get_obs_count(f, geo_filter=barra_filter)
                         obs_count += obs_c
 
                         print("\tObs Count:", obs_c)
@@ -208,14 +237,14 @@ def main():
 #    plt.xlim((-180, 180))
 #    plt.xlim((0, 360))
 #    plt.ylim((-90, 90))
-    plt.xlim((85, 215))
-    plt.ylim((-65, 20))
+    plt.xlim((BARRA_LEFT-5, BARRA_RIGHT+360+5))
+    plt.ylim((BARRA_BOTTOM-5, BARRA_TOP+5))
 
-    plt.axhline(-60, linestyle='-', color='r')
-    plt.axhline(15, linestyle='-', color='r')
-    plt.axvline(90, linestyle='-', color='r')
-    plt.axvline(210-360, linestyle='-', color='r')
-    plt.axvline(210, linestyle='-', color='r')
+    plt.axhline(BARRA_BOTTOM, linestyle='-', color='r')
+    plt.axhline(BARRA_TOP, linestyle='-', color='r')
+    plt.axvline(BARRA_LEFT, linestyle='-', color='r')
+    plt.axvline(BARRA_RIGHT, linestyle='-', color='r')
+    plt.axvline(BARRA_RIGHT+360, linestyle='-', color='r')
 
     plt.xlabel("Longitude (degrees)")
     plt.ylabel("Latitude (degrees)")
@@ -228,6 +257,10 @@ def main():
     plt.figure()
     plt.plot(dts, converted_obs_count, color="C1", label="Converted")
     plt.plot(dts, prod_obs_count, color="C0", label="Production")
+
+    print("Datetime, Converted, Production")
+    for dt, con, pro in zip(dts, converted_obs_count, prod_obs_count):
+        print(", ".join([dt.strftime("%Y%m%dT%H%M"), str(con), str(pro)]))
 
     plt.xlabel("Datetime")
     plt.ylabel("Observation Count")
