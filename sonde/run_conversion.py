@@ -20,8 +20,11 @@ from netCDF4 import Dataset
 from datetime import datetime
 from multiprocessing.pool import Pool
 from functools import partial
+from re import search
 
 from sonde_bufr_converter import do_conversion
+from igra2_sonde_type import meta_sonde_type_dict_list
+
 
 # PARAMETERS
 # Multiprocessing
@@ -31,6 +34,7 @@ N_CPU = 1
 IGRA_FILE_DIR = "/g/data/hd50/barra2/data/obs/igra"
 
 IGRA_STATION_LIST_PATH = join(IGRA_FILE_DIR, "doc/igra2-station-list.txt")
+IGRA_METADATA_PATH = join(IGRA_FILE_DIR, "doc/igra2-metadata.txt")
 
 # Sonde txts are IGRA, and not bias corrected, they also start as ZIPs
 SONDE_TXT_INPUT_DIR = join(IGRA_FILE_DIR, "data-por")
@@ -55,9 +59,11 @@ TEMPLATE_BUFR = "/g/data/hd50/jt4085/BARRA2/sonde/data/temp.bufr"
 BUFR_EXTENSION = ".bufr"
 OUTPUT_DIR = "/scratch/hd50/jt4085/sonde/data-bufr"
 
-# Binning Script - Courtesy of Chun-Hsu
-# Takes a directory with .bufr files in it and splits them into 6 hours bins.
-BINNING_SCRIPT = "/g/data/hd50/chs548/barra2_shared_dev/bufr/organise_bufr.py"
+# Barra region
+BARRA_LEFT = 90.00
+BARRA_RIGHT = 210.0 - 360
+BARRA_BOTTOM = -60.00
+BARRA_TOP = 15.00
 
 
 # FUNCTIONS
@@ -97,6 +103,94 @@ def get_station_name_from_code(station_code,
         return str(result[41:71].strip())
 
 
+def get_station_location(station_code,
+                         station_list_file=IGRA_STATION_LIST_PATH):
+    station_line = grep(station_list_file, station_code)
+
+    lat = float(station_line[12:20])
+    lon = float(station_line[21:30])
+
+    # Check if lat/lon are mobile stations
+    if lat == -98.8888:
+        lat = None
+    if lon == -998.8888:
+        lon = None
+
+    return lat, lon
+
+
+def is_station_in_barra2_region(station_code):
+    lat, lon = get_station_location(station_code)
+
+    if lat is None or lon is None:
+        # Mobile station, let's say it is in the region.
+        return True
+    elif BARRA_BOTTOM < lat < BARRA_TOP and \
+        ( (BARRA_LEFT < BARRA_RIGHT) and \
+          (BARRA_LEFT < lon < BARRA_RIGHT) ) or \
+        ( (BARRA_LEFT > BARRA_RIGHT) and \
+          (BARRA_LEFT < lon or lon < BARRA_RIGHT) ):
+        return True
+    else:
+        return False
+
+
+def get_station_metadata(station_code):
+    meta_data = grep(IGRA_METADATA_PATH, station_code + ".*SONDE MODEL")
+
+    sonde_types = []
+    for l in meta_data.split('\n'):
+        if len(l) > 0:
+            year = int(l[84:88])
+            month = int(l[89:91])
+            month = month if month!=99 else 1
+            day = int(l[92:94])
+            day = day if day!=99 else 1
+            hour = int(l[95:97])
+            hour = hour if hour!=99 else 1
+
+            dt = datetime(year=year,
+                          month=month,
+                          day=day,
+                          hour=hour)
+
+            event = l[100:119]
+
+            sonde_model_before = l[123:163].strip()
+            sonde_model_after = l[168:208].strip()
+
+            if sonde_model_after and \
+                sonde_model_after!="" and sonde_model_after!="NONE":
+                sonde_model = sonde_model_after
+            else:
+                sonde_model = sonde_model_before
+
+            print(l)
+            print("\tDatetime:", dt)
+            print("\tEvent:", event)
+            print("\tBefore:", sonde_model_before)
+            print("\tAfter:", sonde_model_after)
+            print("\tModel:", sonde_model)
+
+            for d in meta_sonde_type_dict_list:
+                reg = d["regex"]
+                if reg and search(d["regex"], sonde_model):
+                    sonde_name = d["name"]
+                    sonde_id = d["id"]
+                    print("\tSonde name:", sonde_name)
+                    print("\tSonde ID:", sonde_id)
+
+                    break
+            else:
+                print("\tNo match found!")
+                exit()
+
+            sonde_types.append((dt, sonde_id))
+
+            print()
+
+    return sonde_types
+
 def _process_zip(f_zip, biases):
     print(basename(f_zip))
 
@@ -122,6 +216,13 @@ def _process_zip(f_zip, biases):
             # Get the station code from the filename
             station_code = basename(str(txt_file))[:11]
 
+            # Is the station ion the BARRA2 region?
+            if not is_station_in_barra2_region(station_code):
+                print("\tStation not in BARRA2 region, skipping.")
+                continue
+            else:
+                print("\tStation in BARRA2 region, processing...")
+
             # Determine the matching station name
             station_name = get_station_name_from_code(station_code)
 
@@ -131,6 +232,12 @@ def _process_zip(f_zip, biases):
                 if b['station name'] == station_name:
                     bias_path = b['path']
                     break
+
+            # Get the metadata for that station so we know the radiosonde type
+            # This has proved not feasible. Metadata is too messy and
+            #  doesn't line up well with radiosondeTypes.
+            # Left for no for posterity. TODO: Delete?
+            #something = get_station_metadata(station_code)
 
             # We now know the filename for the raw sonde data and for
             #   the bias correction (if it exists)
@@ -192,3 +299,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
