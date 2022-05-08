@@ -78,7 +78,7 @@ class BufrMessage:
         self.parent_bufr = bufr
         self.message_id = message_id
 
-        ecc.codes_set(self.message_id, 'compressedData', 1)
+#        ecc.codes_set(self.message_id, 'compressedData', 1)
 
         try:
             ecc.codes_set(self.message_id, 'unpack', 1)
@@ -86,6 +86,10 @@ class BufrMessage:
             #print("Failed to 'unpack', FunctionNotImplementedError:", e)
             # Trying again, sometimes it works the second time.
             ecc.codes_set(self.message_id, 'unpack', 1)
+
+    def write_to_file(self, file_obj):
+        ecc.codes_set(self.message_id, 'pack', 1)
+        ecc.codes_write(self.message_id, file_obj)
 
     def get_attributes(self):
         return BufrAttributes(self)
@@ -159,6 +163,9 @@ class BufrMessage:
             dt = dt * num
 
         return dt
+
+    def set_value(self, key, value):
+        ecc.codes_set(self.message_id, key, value)
 
 
 class BufrAttributes:
