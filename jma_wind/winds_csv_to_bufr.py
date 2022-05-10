@@ -60,9 +60,7 @@ DATA_PRESENT_BITMAP = [
 # Satellites
 #  https://confluence.ecmwf.int/display/ECC/WMO%3D2+code-flag+table#WMO=2codeflagtable-CF_001007
 #  centre is the central wavelength in microns, bandwidth is also in microns
-# TODO: jma_interface is only implemented for MTSAT-2 and MTSAT-1R at the moment.
-# SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
-SATELLITE_NAMES = ["MTSAT-1R", "MTSAT-2"]
+SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
 CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
 # OPS only uses VIS, IR2 and IR3
 CHANNEL_NAMES = ["VIS", "IR1", "IR3"]

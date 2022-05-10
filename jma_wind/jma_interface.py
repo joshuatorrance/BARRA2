@@ -41,7 +41,7 @@ from netCDF4 import num2date, date2num
 input_dir = '/scratch/hd50/barra2/data/obs/'
 input_dir = '/scratch/hd50/jt4085/jma_wind/'
 infile_template = input_dir + '$instrument/%Y%m/%d/%H/$coverage/*$CHANNEL*.gz'
-_platforms = ['MTSAT-2', 'MTSAT-1R']
+_platforms = ['MTSAT-2', 'MTSAT-1R', 'GOES-9', 'GMS-5']
 _time_units = 'days since 1858-11-17 00:00:00'
 _channels = ['VIS', 'IR1', 'IR2', 'IR3', 'IR4']
 _tempdir = '/scratch/hd50/%s' % os.environ['USER']
