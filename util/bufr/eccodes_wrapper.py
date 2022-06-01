@@ -22,9 +22,10 @@ from datetime import datetime, timezone
 
 # CLASSES
 class BufrFile:
-    def __init__(self, filepath, mode='rb'):
+    def __init__(self, filepath, mode='rb', compressed=False):
         self.filepath = filepath
         self.filemode = mode
+        self.compressed_msg = compressed
 
     def __enter__(self):
         self.file_obj = open(self.filepath, self.filemode)
@@ -35,7 +36,7 @@ class BufrFile:
         self.file_obj.close()
 
     def get_messages(self):
-        return BufrMessages(self)
+        return BufrMessages(self, compressed=self.compressed_msg)
 
     def get_number_messages(self):
         return ecc.codes_count_in_file(self.file_obj)
@@ -49,8 +50,10 @@ class BufrFile:
 
 
 class BufrMessages:
-    def __init__(self, bufr):
+    def __init__(self, bufr, compressed=False):
         self.parent_bufr = bufr
+
+        self.compressed_msg = compressed
 
         self.current_message = None
 
@@ -68,17 +71,20 @@ class BufrMessages:
 
             raise StopIteration
         else:
-            self.current_message = BufrMessage(self.parent_bufr, new_message_id)
+            self.current_message = BufrMessage(self.parent_bufr,
+                                               new_message_id,
+                                               compressed=self.compressed_msg)
 
             return self.current_message
 
 
 class BufrMessage:
-    def __init__(self, bufr, message_id):
+    def __init__(self, bufr, message_id, compressed=False):
         self.parent_bufr = bufr
         self.message_id = message_id
 
-#        ecc.codes_set(self.message_id, 'compressedData', 1)
+        if compressed:
+            ecc.codes_set(self.message_id, 'compressedData', 1)
 
         try:
             ecc.codes_set(self.message_id, 'unpack', 1)
