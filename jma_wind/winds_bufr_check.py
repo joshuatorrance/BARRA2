@@ -10,16 +10,23 @@ from pandas import concat, to_datetime
 from os.path import join, basename, exists
 import eccodes as ecc
 from sys import path
-from matplotlib import pyplot as plt, dates as plt_dates
+from matplotlib import cbook, pyplot as plt, dates as plt_dates
 from datetime import datetime, timedelta
 from collections.abc import Iterable
+from cartopy import crs
 
 # Import custom modules
 path.insert(1, "/g/data/hd50/jt4085/BARRA2/util/bufr")
 from eccodes_wrapper import BufrFile
 from jma_interface import get_wind_data
 
+# Silence matplotlib warning related to cartopy
+from warnings import filterwarnings
+filterwarnings("ignore", category=cbook.mplDeprecation)
+
+
 # PARAMETERS
+BARRA2_CENTRAL_LON = 150
 
 
 # METHODS
@@ -129,13 +136,23 @@ def get_centre_freqs(filepath):
     return array(central_freqs)
 
 
+def plot_lat_lon_markers(lat, lon, marker='x', colour=None):
+    ax = plt.axes(projection=crs.PlateCarree(
+        central_longitude=BARRA2_CENTRAL_LON))
+    ax.coastlines()
+
+    plt.plot(lon, lat, marker, color=colour, transform=crs.PlateCarree())
+
+    plt.xlabel("Longitude (degrees)")
+    plt.ylabel("Latitude(degrees)")
+
+
 # SCRIPT
 def main1():
-    YEAR = 2012
-    MONTH = 5
-    DAY = 2
+    YEAR = 1995
+    MONTH = 6
+    DAY = 13
     HOUR = 12
-    HOUR = 6
     INPUT_DIR1 = "/scratch/hd50/jt4085/jma_wind/bufr"
     INPUT_FILE_PATH1 = "{in_dir}/{year}/{month:02}/{year}{month:02}{day:02}T{hour:02}00/{year}{month:02}{day:02}T{hour:02}00.bufr"
     #INPUT_FILE_PATH = "/scratch/hd50/jt4085/sonde/data-bufr/ZZXUAICE019-data.bufr"
@@ -148,41 +165,44 @@ def main1():
     INPUT_FILE_PATH2 = INPUT_FILE_PATH2.format(in_dir=INPUT_DIR2, year=YEAR,
                                                month=MONTH, day=DAY, hour=HOUR)
 
-    # Get raw CSV data
     start_dt = datetime(year=YEAR, month=MONTH, day=DAY, hour=HOUR) \
                         - timedelta(hours=3)
     end_dt = datetime(year=YEAR, month=MONTH, day=DAY, hour=HOUR) \
                       + timedelta(hours=3) - timedelta(microseconds=1)
+
     print("\nStart and end times:")
     print(start_dt)
     print(end_dt)
 
-    SATELLITE_NAMES = ["MTSAT-1R", "MTSAT-2"]
-    CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
+    # Get raw CSV data
+    if True:
+        SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
+        CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
+        CHANNEL_NAMES = ["VIS", "IR1", "IR3"]
 
-    raw_data = None
-    for sat in SATELLITE_NAMES:
-        for chan in CHANNEL_NAMES:
-            raw = get_wind_data(sat, chan, start_dt, end_dt)
+        raw_data = None
+        for sat in SATELLITE_NAMES:
+            for chan in CHANNEL_NAMES:
+                raw = get_wind_data(sat, chan, start_dt, end_dt)
 
-            if raw is None:
-                continue
+                if raw is None:
+                    continue
 
-            if raw_data is not None:
-                for key in raw:
-                    raw_data = concat([raw_data, raw[key]], axis=0)
-            else:
-                for key in raw:
-                    if raw_data is not None:
+                if raw_data is not None:
+                    for key in raw:
                         raw_data = concat([raw_data, raw[key]], axis=0)
-                    else:
-                        raw_data = raw[key]
+                else:
+                    for key in raw:
+                        if raw_data is not None:
+                            raw_data = concat([raw_data, raw[key]], axis=0)
+                        else:
+                            raw_data = raw[key]
 
-    raw_dts = raw_data['time(mjd)']
+        raw_dts = raw_data['time(mjd)']
 
-    raw_wind_speeds = (raw_data["u (m/s)"]**2 + raw_data["v (m/s)"]**2)**0.5
-    print("\nRaw DTs")
-    print("Range:", raw_dts.max() - raw_dts.min())
+        raw_wind_speeds = (raw_data["u (m/s)"]**2 + raw_data["v (m/s)"]**2)**0.5
+        print("\nRaw DTs")
+        print("Range:", raw_dts.max() - raw_dts.min())
 
     # Get converted data
     print("\nConverted BUFR Data:")
@@ -274,10 +294,10 @@ def main1():
     plt.xlabel("Time")
     plt.ylabel("Longitude (degrees)")
 
-    dt_format = plt_dates.DateFormatter("%H:%MZ")
-    plt.gca().xaxis.set_major_formatter(dt_format)
-    plt.xlim((dts1[0].replace(hour=3, minute=0, second=0),
-              dts1[0].replace(hour=9, minute=0, second=0)))
+#    dt_format = plt_dates.DateFormatter("%H:%MZ")
+#    plt.gca().xaxis.set_major_formatter(dt_format)
+#    plt.xlim((dts1[0].replace(hour=3, minute=0, second=0),
+#              dts1[0].replace(hour=9, minute=0, second=0)))
 
     # Plot dt vs lat
     plt.figure(6)
@@ -290,22 +310,22 @@ def main1():
     plt.xlabel("Time")
     plt.ylabel("Latitude (degrees)")
 
-    dt_format = plt_dates.DateFormatter("%H:%MZ")
-    plt.gca().xaxis.set_major_formatter(dt_format)
-    plt.xlim((dts1[0].replace(hour=3, minute=0, second=0),
-              dts1[0].replace(hour=9, minute=0, second=0)))
+#    dt_format = plt_dates.DateFormatter("%H:%MZ")
+#    plt.gca().xaxis.set_major_formatter(dt_format)
+#    plt.xlim((dts1[0].replace(hour=3, minute=0, second=0),
+#              dts1[0].replace(hour=9, minute=0, second=0)))
 
-    # Plot lat vs long
-    # Plot lat vs long
+    # Plot lat vs lon
     plt.figure(3)
 
-    plt.scatter(lon2, lat2)
+    plt.scatter(lon1, lat1, marker='+', label='New')
+    plt.scatter(lon2, lat2, marker='x', label='Old')
 
     # Use prod central freqs to filter converted lat/lon
     lat1_f, lon1_f = get_locations(INPUT_FILE_PATH1,
                                    filter_centre_freqs=[central_freqs2[0]])
 
-    plt.scatter(lon1_f, lat1_f, marker='x')
+#    plt.scatter(lon1_f, lat1_f, marker='x')
 
     plt.xlabel("Longitude (degrees)")
     plt.ylabel("Latitude (degrees)")
@@ -315,6 +335,8 @@ def main1():
 
     plt.title("Lon & Lat for {year}/{month:02}/{day:02} {hour:02}:00Z".format(
               year=YEAR, month=MONTH, day=DAY, hour=HOUR))
+
+    plt.legend()
 
     # Plot lat vs long with frequency filter
     plt.figure(4)
@@ -392,30 +414,31 @@ def main1():
     plt.ylabel("Latitude (degrees)")
 
 
-    print("\n\n")
-    print("######################################")
-    print("Single Channel: {:e} Hz\n".format(central_freqs1[0]))
+    if False:
+        print("\n\n")
+        print("######################################")
+        print("Single Channel: {:e} Hz\n".format(central_freqs1[0]))
 
-    print("Small geographic area\n")
-    print("New Converted Data:")
-    print("Wind speed:")
-    print("\tNumber of obs:", len(wss1_filtered))
-    print("\tMean:",          wss1_filtered.mean())
-    print("\tMedian:",        median(wss1_filtered))
-    print("\tStd:",           wss1_filtered.std())
-    print("\tMin:",           wss1_filtered.min())
-    print("\tMax:",           wss1_filtered.max())
+        print("Small geographic area\n")
+        print("New Converted Data:")
+        print("Wind speed:")
+        print("\tNumber of obs:", len(wss1_filtered))
+        print("\tMean:",          wss1_filtered.mean())
+        print("\tMedian:",        median(wss1_filtered))
+        print("\tStd:",           wss1_filtered.std())
+        print("\tMin:",           wss1_filtered.min())
+        print("\tMax:",           wss1_filtered.max())
 
-    print()
+        print()
 
-    print("Old Data in Production:")
-    print("Wind speed:")
-    print("\tNumber of obs:", len(wss2_filtered))
-    print("\tMean:",          wss2_filtered.mean())
-    print("\tMedian:",        median(wss2_filtered))
-    print("\tStd:",           wss2_filtered.std())
-    print("\tMin:",           wss2_filtered.min())
-    print("\tMax:",           wss2_filtered.max())
+        print("Old Data in Production:")
+        print("Wind speed:")
+        print("\tNumber of obs:", len(wss2_filtered))
+        print("\tMean:",          wss2_filtered.mean())
+        print("\tMedian:",        median(wss2_filtered))
+        print("\tStd:",           wss2_filtered.std())
+        print("\tMin:",           wss2_filtered.min())
+        print("\tMax:",           wss2_filtered.max())
 
     # Narrow vertical slice
     slice_lon =  157
@@ -446,30 +469,31 @@ def main1():
 
     plt.legend()
 
-    print("\n\n")
-    print("######################################")
-    print("Single Channel: {:e} Hz\n".format(central_freqs1[0]))
+    if False:
+        print("\n\n")
+        print("######################################")
+        print("Single Channel: {:e} Hz\n".format(central_freqs1[0]))
 
-    print("Small geographic Slice\n")
-    print("New Converted Data:")
-    print("Wind speed:")
-    print("\tNumber of obs:", len(wss1_filtered))
-    print("\tMean:",          wss1_filtered.mean())
-    print("\tMedian:",        median(wss1_filtered))
-    print("\tStd:",           wss1_filtered.std())
-    print("\tMin:",           wss1_filtered.min())
-    print("\tMax:",           wss1_filtered.max())
+        print("Small geographic Slice\n")
+        print("New Converted Data:")
+        print("Wind speed:")
+        print("\tNumber of obs:", len(wss1_filtered))
+        print("\tMean:",          wss1_filtered.mean())
+        print("\tMedian:",        median(wss1_filtered))
+        print("\tStd:",           wss1_filtered.std())
+        print("\tMin:",           wss1_filtered.min())
+        print("\tMax:",           wss1_filtered.max())
 
-    print()
+        print()
 
-    print("Old Data in Production:")
-    print("Wind speed:")
-    print("\tNumber of obs:", len(wss2_filtered))
-    print("\tMean:",          wss2_filtered.mean())
-    print("\tMedian:",        median(wss2_filtered))
-    print("\tStd:",           wss2_filtered.std())
-    print("\tMin:",           wss2_filtered.min())
-    print("\tMax:",           wss2_filtered.max())
+        print("Old Data in Production:")
+        print("Wind speed:")
+        print("\tNumber of obs:", len(wss2_filtered))
+        print("\tMean:",          wss2_filtered.mean())
+        print("\tMedian:",        median(wss2_filtered))
+        print("\tStd:",           wss2_filtered.std())
+        print("\tMin:",           wss2_filtered.min())
+        print("\tMax:",           wss2_filtered.max())
 
     plt.show()
 
@@ -478,22 +502,24 @@ def main2():
     converted_dir = "/scratch/hd50/jt4085/jma_wind/bufr"
 
     prod_dir = "/g/data/hd50/barra2/data/obs/production"
-    prod_path = "{in_dir}/{year}/{month}/{dt}Z/bufr/satwind/JMAWINDS_1.bufr"
+    prod_path = "{in_dir}/{year}/{month}/{dt}Z/bufr/satwind/JMAWINDS_*.bufr"
 
     datetimes = []
     converted_obs_counts = []
     prod_obs_counts = []
-
-    converted_wind_speed_means = []
-    prod_wind_speed_means = []
-
-    limit = 500
 
     year_dirs = glob(join(converted_dir, "*"))
     year_dirs.sort()
     for year_dir in year_dirs:
         year = basename(year_dir)
         print(year)
+
+        if int(year)<1987:
+            print("\tBefore GMS-3, skipping")
+            continue
+#        if int(year)<1990:
+#            print("\tBefore GMS-4, skipping")
+#            continue
 
         month_dirs = glob(join(year_dir, "*"))
         month_dirs.sort()
@@ -507,14 +533,15 @@ def main2():
                 dt = basename(dt_dir)
                 print("\t\t" + dt)
 
+                if True and dt<"19921014T0600":
+                    print("\t\t\tAlready done, skipping.")
+                    continue
                 date_time = datetime.strptime(dt + "+0000", "%Y%m%dT%H%M%z")
 
                 converted_obs_count = 0
                 prod_obs_count = 0
 
-                converted_wind_speed_sum = 0
-                production_wind_speed_sum = 0
-
+                # Find the converted/moved/new files
                 files = glob(join(dt_dir, "*.bufr"))
                 files.sort()
                 for f_path in files:
@@ -522,68 +549,48 @@ def main2():
                     print("\t\t\t" + f_name)
 
                     print("\t\t\tGetting converted count...", end='')
-                    converted_obs_count += get_obs_count(f_path)
+                    count = get_obs_count(f_path)
+                    converted_obs_count += count
                     print("done.")
 
-                    print("\t\t\tGetting converted wind speed...", end='')
-                    converted_wind_speed_sum += sum(get_wind_speed(f_path))
-                    print("done.")
+                    if False:
+                        print("\t\t\tGetting converted lat/lon...", end='')
+                        lat, lon = get_locations(f_path)
+                        print("done.")
 
-                # Find the corresponding file in production.
+                        plot_lat_lon_markers(lat, lon, marker='+')
+
+                    print()
+
+                # Find the corresponding file/s in production.
                 prod_file_path = prod_path.format(
                     in_dir=prod_dir, year=year, month=month, dt=dt)
 
-                if exists(prod_file_path):
+                prod_filepaths = glob(prod_file_path)
+
+                for prod_file_path in prod_filepaths:
                     print("\t\t\tGetting prod count...", end='')
                     prod_obs_count = get_obs_count(prod_file_path)
                     print("done.")
 
-                    print("\t\t\tGetting prod wind speed...", end='')
-                    production_wind_speed_sum += sum(get_wind_speed(f_path))
-                    print("done.")
+                    if False:
+                        print("\t\t\tGetting prod lat/lon...", end='')
+                        lat, lon = get_locations(prod_file_path)
+                        print("done.")
+
+                        plot_lat_lon_markers(lat, lon, marker='x')
                     
                 datetimes.append(date_time)
                 converted_obs_counts.append(converted_obs_count)
                 prod_obs_counts.append(prod_obs_count)
 
-                if converted_obs_count > 0:
-                    converted_wind_speed_means.append(
-                        converted_wind_speed_sum / converted_obs_count)
-                else:
-                    converted_wind_speed_means.append(float("nan"))
-
-                if prod_obs_count > 0:
-                    prod_wind_speed_means.append(
-                        production_wind_speed_sum / prod_obs_count)
-                else:
-                    prod_wind_speed_means.append(float("nan"))
-
-                if len(converted_obs_counts) > limit:
-                    break
-                else:
-                    print(len(converted_obs_counts))
-
-            if len(converted_obs_counts) > limit:
-                break
-        if len(converted_obs_counts) > limit:
-            break
 
     plt.figure()
 
-    plt.plot(datetimes, converted_obs_counts, label="Converted")
-    plt.plot(datetimes, prod_obs_counts, label="Production")
+    plt.plot(datetimes, converted_obs_counts, '-x', label="Converted")
+    plt.plot(datetimes, prod_obs_counts, '-+', label="Production")
 
     plt.ylabel("Number of observations per bin")
-    plt.xlabel("Datetime")
-
-    plt.legend()
-
-    plt.figure()
-
-    plt.plot(datetimes, converted_wind_speed_means, label="Converted")
-    plt.plot(datetimes, prod_wind_speed_means, label="Production")
-
-    plt.ylabel("Mean Wind Speed (m/s)")
     plt.xlabel("Datetime")
 
     plt.legend()
@@ -592,4 +599,4 @@ def main2():
 
 
 if __name__ == "__main__":
-    main1()
+    main2()

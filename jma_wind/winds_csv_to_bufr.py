@@ -62,7 +62,7 @@ DATA_PRESENT_BITMAP = [
 #  centre is the central wavelength in microns, bandwidth is also in microns
 SATELLITE_NAMES = ["GMS-5", "MTSAT-1R", "MTSAT-2", "GOES-9"]
 CHANNEL_NAMES = ["VIS", "IR1", "IR2", "IR3", "IR4"]
-# OPS only uses VIS, IR2 and IR3
+# OPS only uses VIS, IR1 and IR3
 CHANNEL_NAMES = ["VIS", "IR1", "IR3"]
 SATELLITES = {"GMS-5": {
                 "id": 152,
