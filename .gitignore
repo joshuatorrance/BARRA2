@@ -136,3 +136,4 @@ data/
 *.bufr
 *.nc
 *.txt
+/.idea/
