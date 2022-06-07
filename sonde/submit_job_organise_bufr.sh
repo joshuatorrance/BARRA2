@@ -11,6 +11,7 @@
 set -ex
 
 # Load modules
+module use /g/data/access/projects/access/modules
 module load python3/3.8.5
 module load eccodes3
 
@@ -21,7 +22,7 @@ output_dir=/scratch/hd50/jt4085/sonde/data-bufr-bins
 temp_root_dir="temp/$start_year"
 
 # Run script for each file path supplied
-echo "files list:"
+echo "files list: $files_list"
 echo "start year: $start_year"
 echo "end year: $end_year"
 
