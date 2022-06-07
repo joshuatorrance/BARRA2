@@ -9,14 +9,16 @@ module load eccodes
 
 
 """
-import os, sys
-from time import time
-import numpy as np
 import glob
+import os
+import shutil
+import subprocess
+import sys
 from datetime import datetime as dt
 from datetime import timedelta as delt
-import subprocess
-import shutil
+from time import time
+
+import numpy as np
 
 print("Starting organise_bufr.py")
 
@@ -30,7 +32,8 @@ print("Output directory:", outdir)
 
 # EDIT by JT, added command line args for min and/or max year bounds
 if len(sys.argv)>=5:
-    end_year_filter = int(sys.argv[4])
+    # We've already done '07 onwards, hack here to stop reprocessing
+    end_year_filter = min(int(sys.argv[4]), 2007)
 else:
     # Otherwise set end_year to max int
     end_year_filter = sys.maxsize
@@ -169,7 +172,14 @@ for file in files:
     if len(windows) == 1:
         # don't need extraction
         t0 = windows[0]
-        thisoutdir = os.path.join(outdir, "%04d" % t0.year, "%02d" % t0.month)
+        thisoutdir = os.path.join(
+            outdir,
+            "%04d" % t0.year,
+            "%02d" % t0.month,
+            "{year:04d}{month:02d}{day:02d}T{hour:02d}00Z".format(
+                year=t0.year, month=t0.month, day=t0.day, hour=t0.hour
+        ))
+
         if not os.path.exists(thisoutdir):
             os.makedirs(thisoutdir)
         outfile = os.path.join(thisoutdir, bn.replace(tstr, t0.strftime('%Y%m%d%H00')))
@@ -196,7 +206,14 @@ for file in files:
             end_day = str(t0j.day)
             end_hour = str(t0j.hour)
 
-            thisoutdir = os.path.join(outdir, "%04d" % t0.year, "%02d" % t0.month)
+            thisoutdir = os.path.join(
+                outdir,
+                "%04d" % t0.year,
+                "%02d" % t0.month,
+                "{year:04d}{month:02d}{day:02d}T{hour:02d}00Z".format(
+                    year=t0.year, month=t0.month, day=t0.day, hour=t0.hour
+            ))
+
             if not os.path.exists(thisoutdir):
                 os.makedirs(thisoutdir, exist_ok=True)
             outfile = os.path.join(thisoutdir, bn.replace(tstr, t0.strftime('%Y%m%d%H00')))
@@ -236,7 +253,18 @@ for file in files:
             end_time = time()
             print("done took {}s".format(end_time-start_time))
 
-            shutil.move(temporary_outfile, outfile)
+            try:
+                shutil.move(temporary_outfile, outfile)
+            except OSError:
+                # There's occasional bad files causing a nuisance.
+                # Move to a different filename.
+                print("something went wrong trying to move to", outfile)
+                outpath, outextention = os.path.splitext(outfile)
+
+                outfile = outpath + "-2" + outextention
+
+                print("trying to move to", outfile, "instead")
+                shutil.move(temporary_outfile, outfile)
 
             print("Extracting to {:}".format(outfile))
 
