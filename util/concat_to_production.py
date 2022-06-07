@@ -2,15 +2,14 @@
 # if necessary and moves the result to the production archive, creating a
 # symlink for the BARRA2 suite to use.
 
+from datetime import datetime
 ## IMPORTS
 from glob import glob
 from os import makedirs, symlink, readlink, remove
-from os.path import join, basename, normpath, exists, \
-     getsize, islink, isabs, dirname
-from sys import argv
+from os.path import join, basename, exists, \
+    getsize, islink, isabs, dirname
 from shutil import move
-from datetime import datetime
-
+from sys import argv
 
 ## PARAMETERS
 # AMSR-2
@@ -28,7 +27,7 @@ if False:
     END_DT = None
 
 # JMA Winds
-if False:
+if True:
     INPUT_DIR = "/scratch/hd50/jt4085/jma_wind/bufr"
     TYPE = "satwind"
     OUTPUT_FILENAME = "JMAWINDS_1.bufr"
@@ -36,13 +35,13 @@ if False:
     CREATE_SYMLINK = False
     SYMLINK_FILENAME = "JMAWINDS_{index}.bufr"
 
-    OLD_FILE_ARCHIVE_DIR = None #"/scratch/hd50/jt4085/jma_wind/old_production_bufrs"
+    OLD_FILE_ARCHIVE_DIR = "/scratch/hd50/jt4085/jma_wind/old_production_bufrs"
 
-    START_DT = None
-    END_DT = None
+    START_DT = datetime(year=int(argv[1]), month=1, day=1)
+    END_DT = datetime(year=int(argv[1]), month=12, day=31, hour=23, minute=59)
 
 # Sonde
-if True:
+if False:
     INPUT_DIR = "/scratch/hd50/jt4085/sonde/data-bufr-bins"
     TYPE = "sonde"
     OUTPUT_FILENAME = "TEMP_1.bufr"
@@ -53,7 +52,7 @@ if True:
     OLD_FILE_ARCHIVE_DIR = "/scratch/hd50/jt4085/sonde/old_production_bufrs"
 
     START_DT = datetime(year=int(argv[1]), month=1, day=1)
-    END_DT = datetime(year=int(argv[1]), month=12, day=31)
+    END_DT = datetime(year=int(argv[1]), month=12, day=31, hour=23, minute=59)
 
 # Output
 OUTPUT_DIR = "/g/data/hd50/barra2/data/obs/production"
@@ -126,11 +125,13 @@ def main():
 
             print("\tMonth:", m)
 
-            if START_DT and int(m) < START_DT.month:
+            if START_DT and \
+                int(y) <= START_DT.year and int(m) < START_DT.month:
                 print("\tBefore start month, skipping.")
                 continue
 
-            if END_DT and int(m) > END_DT.month:
+            if END_DT and \
+                int(y) >= END_DT.year and int(m) > END_DT.month:
                 print("\tAfter end month, skipping.")
                 continue
 
@@ -149,12 +150,15 @@ def main():
 
                 print("\t\t", dt)
 
-                if START_DT and int(dt[6:8]) < START_DT.day:
-                    print("\tBefore start month, skipping.")
+                datet = datetime(year=int(y), month=int(m),
+                    day=int(dt[6:8]), hour=int(dt[9:11]))
+
+                if START_DT and datet < START_DT:
+                    print("\t\tBefore start day, skipping.")
                     continue
 
-                if END_DT and int(dt[6:8]) > END_DT.day:
-                    print("\tAfter end month, skipping.")
+                if END_DT and datet > END_DT:
+                    print("\t\tAfter end day, skipping.")
                     continue
 
                 # Find the corresponding output dir

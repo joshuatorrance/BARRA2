@@ -3,18 +3,18 @@
 #
 # Joshua Torrance
 
+from collections.abc import Iterable
+from datetime import datetime
 # IMPORTS
 from glob import glob
-from numpy import array, concatenate, nanmean, nanstd, nanmax, nanmin, full
 from os import remove
 from os.path import exists, basename
 from shutil import copyfile
 from subprocess import run
-from datetime import datetime
-from collections.abc import Iterable
-import eccodes as ecc
 from sys import path
+
 from matplotlib import pyplot as plt
+from numpy import array, concatenate
 
 # Import custom modules
 path.insert(1, "/g/data/hd50/jt4085/BARRA2/util/bufr")
@@ -34,7 +34,7 @@ MONTH = 1
 DAY = 21
 HOUR = 18
 INPUT_DIR1 = "/scratch/hd50/jt4085/sonde/data-bufr-bins"
-INPUT_FILE_PATH1 = "{input_dir}/{year}/{month:02}/*-{year}{month:02}{day:02}{hour:02}00.bufr"
+INPUT_FILE_PATH1 = "{input_dir}/{year}/{month:02}/{year}{month:02}{day:02}T{hour:02}00Z/*.bufr"
 #INPUT_FILE_PATH = "/scratch/hd50/jt4085/sonde/data-bufr/ZZXUAICE019-data.bufr"
 
 INPUT_DIR2 = "/g/data/hd50/barra2/data/obs/production"
@@ -139,9 +139,8 @@ def main():
     dts = []
     prod_obs_count = []
     converted_obs_count = []
-    for y in [2019]:
-#    for y in [2007, 2009, 2010, 2011, 2012, 2013, \
-#              2016, 2017, 2018, 2019, 2021, 2022]:
+#    for y in range(1978, 1984):
+    for y in [1978]:
         for m in range(1, 2):
             for d in range(1, 31):
                 for h in [0, 6, 12, 18]:
@@ -154,6 +153,9 @@ def main():
                     input_2 = INPUT_FILE_PATH2.format(
                         input_dir=INPUT_DIR2, year=y, month=m,
                         day=d, hour=h)
+
+                    print(input_1)
+                    print(input_2)
 
                     print()
                     obs_count = 0
@@ -200,12 +202,7 @@ def main():
                     print()
                     obs_count = 0
                     for f in glob(input_1):
-                        continue
                         print(basename(f))
-
-                        station_name = basename(f)[:11]
-                        station_lat, station_lon = \
-                            get_station_location(station_name)
 
                         print("\tGetting lat and lon...", end="")
                         lat, lon = get_locations(f)
@@ -216,12 +213,6 @@ def main():
                             plt.scatter(lon, lat, marker='+', color="C1",
                                         label="Converted")
 
-                        if station_lon is not None and station_lat is not None:
-                            station_lon = station_lon + 360 \
-                                if station_lon<0 else station_lon
-
-                            plt.scatter(station_lon, station_lat,
-                                        marker='.', color="C2")
                         print("done.")
 
                         obs_c = get_obs_count(f, geo_filter=barra_filter)
@@ -231,41 +222,42 @@ def main():
 
                     converted_obs_count.append(obs_count)
 
-    if exists(TEMP_FILE_PATH):
-        remove(TEMP_FILE_PATH)
+        if exists(TEMP_FILE_PATH):
+            remove(TEMP_FILE_PATH)
 
-#    plt.xlim((-180, 180))
-#    plt.xlim((0, 360))
-#    plt.ylim((-90, 90))
-    plt.xlim((BARRA_LEFT-5, BARRA_RIGHT+360+5))
-    plt.ylim((BARRA_BOTTOM-5, BARRA_TOP+5))
+    #    plt.xlim((-180, 180))
+    #    plt.xlim((0, 360))
+    #    plt.ylim((-90, 90))
+        plt.xlim((BARRA_LEFT-5, BARRA_RIGHT+360+5))
+        plt.ylim((BARRA_BOTTOM-5, BARRA_TOP+5))
 
-    plt.axhline(BARRA_BOTTOM, linestyle='-', color='r')
-    plt.axhline(BARRA_TOP, linestyle='-', color='r')
-    plt.axvline(BARRA_LEFT, linestyle='-', color='r')
-    plt.axvline(BARRA_RIGHT, linestyle='-', color='r')
-    plt.axvline(BARRA_RIGHT+360, linestyle='-', color='r')
+        plt.axhline(BARRA_BOTTOM, linestyle='-', color='r')
+        plt.axhline(BARRA_TOP, linestyle='-', color='r')
+        plt.axvline(BARRA_LEFT, linestyle='-', color='r')
+        plt.axvline(BARRA_RIGHT, linestyle='-', color='r')
+        plt.axvline(BARRA_RIGHT+360, linestyle='-', color='r')
 
-    plt.xlabel("Longitude (degrees)")
-    plt.ylabel("Latitude (degrees)")
+        plt.title(str(y))
+        plt.xlabel("Longitude (degrees)")
+        plt.ylabel("Latitude (degrees)")
 
-    # Dedup labels
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys(), loc='lower right')
+        # Dedup labels
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(), loc='lower right')
 
-    plt.figure()
-    plt.plot(dts, converted_obs_count, color="C1", label="Converted")
-    plt.plot(dts, prod_obs_count, color="C0", label="Production")
+        plt.figure()
+        plt.plot(dts, converted_obs_count, color="C1", label="Converted")
+        plt.plot(dts, prod_obs_count, color="C0", label="Production")
 
-    print("Datetime, Converted, Production")
-    for dt, con, pro in zip(dts, converted_obs_count, prod_obs_count):
-        print(", ".join([dt.strftime("%Y%m%dT%H%M"), str(con), str(pro)]))
+        print("Datetime, Converted, Production")
+        for dt, con, pro in zip(dts, converted_obs_count, prod_obs_count):
+            print(", ".join([dt.strftime("%Y%m%dT%H%M"), str(con), str(pro)]))
 
-    plt.xlabel("Datetime")
-    plt.ylabel("Observation Count")
+        plt.xlabel("Datetime")
+        plt.ylabel("Observation Count")
 
-    plt.legend()
+        plt.legend()
 
     plt.show()
 
