@@ -1,12 +1,14 @@
 
 
-## IMPORTS
+from datetime import datetime
 from glob import glob
 from os import readlink
 from os.path import basename, join, exists, islink, isabs, dirname, isdir
+## IMPORTS
+from sys import argv
 from sys import path
-from datetime import datetime
-from pandas import DataFrame, concat, read_csv
+
+from pandas import DataFrame, concat
 
 # Import custom modules
 path.insert(1, "/g/data/hd50/jt4085/BARRA2/util/bufr")
@@ -152,8 +154,16 @@ def main():
         print(y)
 
 
-        if int(y) < 2007:
-            print("\tBefore 2007, skipping")
+        if int(y) < 1978:
+            print("\tBefore 1978, skipping")
+            continue
+
+        if int(y) > 1998:
+            print("\tAfter 1998, skipping")
+            continue
+
+        if len(argv)>1 and y != argv[1]:
+            print("\tYear not {}, skipping".format(argv[1]))
             continue
 
         for m_dir in sorted(glob(join(y_dir, "*"))):
@@ -162,10 +172,6 @@ def main():
 
             m = basename(m_dir)
             print("\t" + m)
-
-            if False and m!="01":
-                print("\t\tNot 01, skipping")
-                continue
 
             sonde_type_csv_path = join(OUTPUT_DIR,
                 "{year}-{month}_sonde_types.csv".format(year=y, month=m))
