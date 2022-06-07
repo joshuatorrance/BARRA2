@@ -3,17 +3,17 @@
 #
 # Joshua Torrance
 
+from collections.abc import Iterable
+from datetime import datetime, timedelta
 # IMPORTS
 from glob import glob
-from numpy import array, ndarray, unique, concatenate, logical_and, median
-from pandas import concat, to_datetime
-from os.path import join, basename, exists
-import eccodes as ecc
+from os.path import join, basename
 from sys import path
-from matplotlib import cbook, pyplot as plt, dates as plt_dates
-from datetime import datetime, timedelta
-from collections.abc import Iterable
+
 from cartopy import crs
+from matplotlib import cbook, pyplot as plt
+from numpy import array, ndarray, unique, concatenate, logical_and, median
+from pandas import concat
 
 # Import custom modules
 path.insert(1, "/g/data/hd50/jt4085/BARRA2/util/bufr")
@@ -514,8 +514,11 @@ def main2():
         year = basename(year_dir)
         print(year)
 
-        if int(year)<1987:
-            print("\tBefore GMS-3, skipping")
+        if int(year)<1990:
+            print("\tBefore GMS-4, skipping")
+            continue
+        elif int(year)>1995:
+            print("\tAfter GMS-4, skipping")
             continue
 #        if int(year)<1990:
 #            print("\tBefore GMS-4, skipping")
@@ -533,9 +536,13 @@ def main2():
                 dt = basename(dt_dir)
                 print("\t\t" + dt)
 
-                if True and dt<"19921014T0600":
+                if False and dt<"19950611T1200":
                     print("\t\t\tAlready done, skipping.")
                     continue
+                elif True and dt>"19950613T0600":
+                    print("\t\t\tAlready done, skipping.")
+                    continue
+
                 date_time = datetime.strptime(dt + "+0000", "%Y%m%dT%H%M%z")
 
                 converted_obs_count = 0
