@@ -257,14 +257,26 @@ def plot_contour_map(lons, lats, vals, title=None):
     plt.colorbar(orientation="horizontal", shrink=0.7)
 
 
-def plot_contour_map_iris(iris_slice, title_str=None):
+def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True):
     plt.figure(title_str)
 
     ax = plt.axes(projection=crs.PlateCarree(
         central_longitude=BARRA2_CENTRAL_LON))
     ax.coastlines()
 
-    iplt.contourf(iris_slice, levels=100, cmap="turbo")
+    iplt.contourf(iris_cube, levels=100, cmap="turbo")
+
+    if print_stats:
+        cube_min = iris_cube.data.min()
+        cube_max = iris_cube.data.max()
+        cube_mean = iris_cube.data.mean()
+        cube_std = iris_cube.data.std()
+        cube_units = iris_cube.units
+
+        plt.title(plt.gca().get_title() +
+                  "\n(min: {:.2f}, max: {:.2f}, mean: {:.2f}, std: {:.2f} {})".format(
+                      cube_min, cube_max, cube_mean, cube_std, cube_units
+                  ))
 
 
 # MAIN
@@ -279,11 +291,13 @@ def main():
 
             cube_awap, cube_barra = get_data_for_day(test_date, obs_name, temp_dir)
 
-            plot_contour_map_iris(cube_awap, obs_name + ": AWAP")
-            plot_contour_map_iris(cube_barra, obs_name + ": BARRA")
+            if False:
+                plot_contour_map_iris(cube_awap, obs_name + ": AWAP")
+                plot_contour_map_iris(cube_barra, obs_name + ": BARRA")
 
             # Calculate the difference between the two cubes
             cube_diff = cube_awap - cube_barra
+            cube_diff.rename(obs_name + " error (AWAP - BARRA2)")
 
             plot_contour_map_iris(cube_diff, obs_name + ": AWAP - BARRA")
 
