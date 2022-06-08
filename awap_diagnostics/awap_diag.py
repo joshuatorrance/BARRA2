@@ -58,6 +58,46 @@ BARRA2_CENTRAL_LON = 150
 
 
 # METHODS
+# Data methods
+def get_barra2_data(filepath):
+    cube = get_data_iris(filepath)
+
+    return cube
+
+
+def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
+    # AWAP
+    cube_awap = get_awap_data_for_day(target_date, obs_name)
+
+    # BARRA2
+    cube_barra = get_barra2_data_for_date(
+        target_date, temporary_dir, obs_name)
+
+    # Convert BARRA2 units to match AWAP units
+    if obs_name == "tmax" or obs_name == "tmin":
+        # Convert barra from K to degrees C to match AWAP
+        cube_barra.convert_units("celsius")
+    elif obs_name == "precip":
+        # BARRA2 uses kg per m^2 per s
+        # 1 kg per m^2 of water = 1mm of thickness
+        # We've already summed the flux for each hour so we only
+        # need to convert from per second to per hour
+        cube_barra.convert_units('kg m-2 hour-1')
+        cube_barra.rename("thickness_of_precipitation")
+        cube_barra.units = "mm"
+
+    # Regrid barra to match the smaller awap grid
+    if regrid:
+        # Remove the coord system from awap to allow regridding
+        # Should I instead be adding a coord system to barra?
+        cube_awap.coord("latitude").coord_system = None
+        cube_awap.coord("longitude").coord_system = None
+
+        cube_barra = cube_barra.regrid(cube_awap, analysis.Linear())
+
+    return cube_awap, cube_barra
+
+
 def get_awap_data_for_day(target_date, obs_name):
     if obs_name not in OBS_NAMES:
         raise ValueError(
@@ -192,12 +232,7 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     return concat_cube
 
 
-def get_barra2_data(filepath):
-    cube = get_data_iris(filepath)
-
-    return cube
-
-
+# Plotting Methods
 def plot_contour_map(lons, lats, vals, title=None):
     mesh_lons, mesh_lats = meshgrid(lons, lats)
 
@@ -223,39 +258,6 @@ def plot_contour_map_iris(iris_slice, title_str=None):
     ax.coastlines()
 
     iplt.contourf(iris_slice, levels=100, cmap="turbo")
-
-
-def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
-    # AWAP
-    cube_awap = get_awap_data_for_day(target_date, obs_name)
-
-    # BARRA2
-    cube_barra = get_barra2_data_for_date(
-        target_date, temporary_dir, obs_name)
-
-    # Convert BARRA2 units to match AWAP units
-    if obs_name == "tmax" or obs_name == "tmin":
-        # Convert barra from K to degrees C to match AWAP
-        cube_barra.convert_units("celsius")
-    elif obs_name == "precip":
-        # BARRA2 uses kg per m^2 per s
-        # 1 kg per m^2 of water = 1mm of thickness
-        # We've already summed the flux for each hour so we only
-        # need to convert from per second to per hour
-        cube_barra.convert_units('kg m-2 hour-1')
-        cube_barra.rename("thickness_of_precipitation")
-        cube_barra.units = "mm"
-
-    # Regrid barra to match the smaller awap grid
-    if regrid:
-        # Remove the coord system from awap to allow regridding
-        # Should I instead be adding a coord system to barra?
-        cube_awap.coord("latitude").coord_system = None
-        cube_awap.coord("longitude").coord_system = None
-
-        cube_barra = cube_barra.regrid(cube_awap, analysis.Linear())
-
-    return cube_awap, cube_barra
 
 
 # MAIN
