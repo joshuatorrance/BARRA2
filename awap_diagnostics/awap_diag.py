@@ -59,7 +59,31 @@ BARRA2_CENTRAL_LON = 150
 
 # METHODS
 # Data methods
-def get_barra2_data(filepath):
+def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
+    # Use the datetime to find the appropriate directory/suite/cycle
+    path = BARRA2_DIR.format(
+        user="*", year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
+
+    path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
+
+    archive_filepath = glob(path)[0]
+
+    # Unpack tars to temporary location
+    cycle_temp_dir = join(temp_dir, obs_name + '-' + dt.strftime(DT_FORMAT))
+    mkdir(cycle_temp_dir)
+    unpack_archive(archive_filepath, cycle_temp_dir)
+
+    # File in the archive are something like:
+    # -nc/PRS1H
+    #  -air_temp_uv-barra_r2-hres-201707020300-201707020900.nc
+    #  -frac_time_p_above-barra_r2-hres-201707020300-201707020900.nc
+    #  ...
+    filepath = glob(join(cycle_temp_dir,
+                         "nc",
+                         BARRA2_FORECAST_FILENAME,
+                         measurement + "*.nc"))[0]
+
+    # Load the cube
     cube = get_data_iris(filepath)
 
     return cube
@@ -159,11 +183,12 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 
     # BARRA2 forecasts are 3 hours ahead of the bins
     # With the timezone approximation of +9 we thus want 0Z to 0Z
-    # So to get 9am to 9am from BARRA2 we need the 18, 00, 6, 12, cycles
-    start = datetime.combine(target_date, time(hour=18)) - timedelta(days=1)
-    end = start + timedelta(days=1)
+    # So to get 9am to 9am from BARRA2 we need the 18, 00, 6, 12, 18 cycles
+    cycle_start = datetime.combine(target_date, time(hour=18)) - timedelta(days=1)
+    cycle_end = cycle_start + timedelta(days=1)
 
-    cycle_dts = arange(start, end, timedelta(hours=6)).astype(datetime)
+    cycle_dts = arange(cycle_start, cycle_end + timedelta(seconds=1),
+                       timedelta(hours=6), ).astype(datetime)
 
     # Set the measurement name and aggregate func for each obs
     if obs_name == "tmax":
@@ -184,31 +209,7 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     for dt in cycle_dts:
         print("\tGetting BARRA2 data for:",  dt)
 
-        # Use the datetime to find the appropriate directory/suite/cycle
-        path = BARRA2_DIR.format(
-            user="*", year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
-
-        path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
-
-        archive_filepath = glob(path)[0]
-
-        # Unpack tars to temporary location
-        cycle_temp_dir = join(temp_dir, obs_name + '-' + dt.strftime(DT_FORMAT))
-        mkdir(cycle_temp_dir)
-        unpack_archive(archive_filepath, cycle_temp_dir)
-
-        # File in the archive are something like:
-        # -nc/PRS1H
-        #  -air_temp_uv-barra_r2-hres-201707020300-201707020900.nc
-        #  -frac_time_p_above-barra_r2-hres-201707020300-201707020900.nc
-        #  ...
-        filepath = glob(join(cycle_temp_dir,
-                             "nc",
-                             BARRA2_FORECAST_FILENAME,
-                             measurement + "*.nc"))[0]
-
-        # Load the cube
-        cube = get_barra2_data(filepath)
+        cube = get_barra2_cycle_data(dt, obs_name, measurement, temp_dir)
 
         # Delete all attributes since they aren't used and
         #  interfere with merging.
@@ -221,6 +222,12 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 
     # Merge the cubes with concatenate
     concat_cube = cubes.concatenate_cube()
+
+    # Trim the ends of the cube since we only need 00Z to 00Z
+    earliest = datetime.combine(target_date, time(hour=0))
+    latest = earliest + timedelta(days=1)
+    time_constraint = Constraint(time=lambda cell: earliest <= cell.point <= latest)
+    concat_cube = concat_cube.extract(time_constraint)
 
     # Collapse along the time axis
     # There's a warning here about non-contiguous coordinates
@@ -281,8 +288,6 @@ def main():
             plot_contour_map_iris(cube_diff, obs_name + ": AWAP - BARRA")
 
             print()
-
-            break
 
         plt.show()
 
