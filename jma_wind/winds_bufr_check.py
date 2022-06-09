@@ -3,9 +3,9 @@
 #
 # Joshua Torrance
 
+# IMPORTS
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-# IMPORTS
 from glob import glob
 from os.path import join, basename
 from sys import path
