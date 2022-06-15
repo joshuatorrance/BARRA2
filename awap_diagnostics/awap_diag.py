@@ -59,7 +59,7 @@ BARRA2_CENTRAL_LON = 150
 
 # Figure parameters
 colourmap_name = "turbo"
-diff_colourmap_name = "RdBu"
+diff_colourmap_name = "RdBu_r"
 
 
 # METHODS
@@ -95,6 +95,8 @@ def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
 
 
 def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
+    # TODO: crash elegantly when no data for a date found
+
     # AWAP
     cube_awap = get_awap_data_for_day(target_date, obs_name)
 
@@ -114,6 +116,9 @@ def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
         cube_barra.convert_units('kg m-2 hour-1')
         cube_barra.rename("thickness_of_precipitation")
         cube_barra.units = "mm"
+
+        # Rename AWAP to have shorter matching name
+        cube_awap.rename("thickness_of_precipitation")
 
     # Regrid barra to match the smaller awap grid
     if regrid:
@@ -188,7 +193,6 @@ def get_data_iris(filepath):
     return cube
 
 
-# noinspection PyTypeChecker
 def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     # AWAP 'days' are 9am to 9am in AU local time
     # http://www.bom.gov.au/climate/austmaps/about-temp-maps.shtml
@@ -259,13 +263,9 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 
 
 # Plotting Methods
-def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True,
+def plot_contour_map_iris(iris_cube, ax, print_stats=True,
                           cmap=colourmap_name, centered_cmap=False,
-                          mask_oceans=False):
-    plt.figure(title_str)
-
-    ax = plt.axes(projection=crs.PlateCarree(
-        central_longitude=BARRA2_CENTRAL_LON))
+                          mask_oceans=False, vmin=None, vmax=None, levels=None):
 
     if mask_oceans:
         # Note: color bars for iris_cube will still reflect the full dataset
@@ -275,8 +275,10 @@ def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True,
     else:
         ax.coastlines()
 
-    iplt.contourf(iris_cube, levels=100, cmap=cmap,
-                  norm=CenteredNorm() if centered_cmap else None)
+    cs = iplt.contourf(iris_cube, levels=levels if levels is not None else 100,
+                       cmap=cmap,
+                       norm=CenteredNorm() if centered_cmap else None,
+                       vmin=vmin, vmax=vmax)
 
     if print_stats:
         cube_min = iris_cube.data.min()
@@ -286,9 +288,46 @@ def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True,
         cube_units = iris_cube.units
 
         plt.title(plt.gca().get_title() +
-                  "\n(min: {:.2f}, max: {:.2f}, mean: {:.2f}, std: {:.2f} {})".format(
-                      cube_min, cube_max, cube_mean, cube_std, cube_units
+                  "\n(mean: {:.2f}, std: {:.2f} {})".format(
+                      cube_mean, cube_std, cube_units
                   ))
+
+    return cs.levels
+
+
+def plot_obs(obs_name, cube_awap, cube_barra, cube_diff):
+    # Plot on a 1x3 grid (default is 8x6)
+    plt.figure(figsize=(3*4.0, 5.0))
+    plt.suptitle(obs_name)
+
+    # Plot AWAP and BARRA with shared vmin/vmax
+    vmin = min(cube_awap.data.min(), cube_barra.data.min())
+    vmax = max(cube_awap.data.max(), cube_barra.data.max())
+
+    # Mask oceans in AWAP since there aren't obs taken at sea
+    axis = plt.subplot(1, 3, 1,
+                       projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
+    levels = plot_contour_map_iris(cube_awap, axis,
+                                   mask_oceans=True,
+                                   vmin=vmin, vmax=vmax)
+    annotation_location = (0.025, 0.025)
+    plt.annotate("AWAP", annotation_location, xycoords="axes fraction")
+
+    axis = plt.subplot(1, 3, 2,
+                       projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
+    plot_contour_map_iris(cube_barra, axis,
+                          vmin=vmin, vmax=vmax, levels=levels)
+    plt.annotate("BARRA", annotation_location, xycoords="axes fraction")
+
+    # Plot the diff
+    axis = plt.subplot(1, 3, 3,
+                       projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
+    plot_contour_map_iris(cube_diff, axis,
+                          cmap=diff_colourmap_name, centered_cmap=True,
+                          mask_oceans=True)
+    plt.annotate("BARRA - AWAP", annotation_location, xycoords="axes fraction")
+
+    plt.tight_layout()
 
 
 # MAIN
@@ -303,21 +342,15 @@ def main():
 
             cube_awap, cube_barra = get_data_for_day(test_date, obs_name, temp_dir)
 
-            if True:
-                # Mask oceans in AWAP since there aren't obs taken at sea
-                plot_contour_map_iris(cube_awap, obs_name + ": AWAP", mask_oceans=True)
-                plot_contour_map_iris(cube_barra, obs_name + ": BARRA")
-
             # Calculate the difference between the two cubes
             cube_diff = cube_barra - cube_awap
             cube_diff.rename(obs_name + " error (BARRA2 - AWAP)")
 
-            # Plot the diff
-            plot_contour_map_iris(cube_diff, obs_name + ": BARRA - AWAP",
-                                  cmap=diff_colourmap_name, centered_cmap=True,
-                                  mask_oceans=True)
+            plot_obs(obs_name, cube_awap, cube_barra, cube_diff)
 
             print()
+
+            break
 
         plt.show()
 
