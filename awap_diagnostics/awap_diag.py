@@ -15,11 +15,12 @@ from shutil import unpack_archive
 from tempfile import TemporaryDirectory
 from warnings import catch_warnings, simplefilter
 
-from cartopy import crs
+from cartopy import crs, feature as cartopy_feature
 from iris import load, analysis, Constraint, quickplot as iplt
 from iris.cube import CubeList
 from matplotlib import pyplot as plt, use
-from numpy import meshgrid, arange
+from matplotlib.colors import CenteredNorm
+from numpy import arange
 
 # Iris/conda seem to want to use QT for matplotlib.
 # Change it back to TK
@@ -55,6 +56,10 @@ BARRA2_PRECIP_MEASUREMENT = "av_prcp_rate"
 
 # BARRA2 Central Longitude for Cartopy
 BARRA2_CENTRAL_LON = 150
+
+# Figure parameters
+colourmap_name = "turbo"
+diff_colourmap_name = "RdBu"
 
 
 # METHODS
@@ -130,6 +135,17 @@ def get_awap_data_for_day(target_date, obs_name):
 
     print("\tGetting AWAP data for:", target_date)
 
+    # "Maximum and minimum temperatures for the previous 24 hours are nominally
+    # recorded at 9 am local clock time. Minimum temperature is recorded against
+    # the day of observation, and the maximum temperature against the previous
+    # day."
+    # http://www.bom.gov.au/climate/cdo/about/definitionstemp.shtml
+    # TODO: I haven't quite wrapped my brain around this, what's below seems to
+    #  work but doesn't seem right. Understand what's going on or exhaustively
+    #  verify it's correct.
+    if obs_name == "tmin":
+        target_date += timedelta(days=1)
+
     # Set the obs_name and year in the path
     path = join(TMAX_DIR, TMAX_FILENAME).format(
         obs_name=obs_name,
@@ -172,8 +188,11 @@ def get_data_iris(filepath):
     return cube
 
 
+# noinspection PyTypeChecker
 def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     # AWAP 'days' are 9am to 9am in AU local time
+    # http://www.bom.gov.au/climate/austmaps/about-temp-maps.shtml
+
     # Australian timezones ranges from
     #  +8 (Australian Western Standard Time, AWST, Perth
     #  +11 (Australian Eastern Daylight Savings Time, AEDT, Melbourne)
@@ -184,11 +203,11 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     # BARRA2 forecasts are 3 hours ahead of the bins
     # With the timezone approximation of +9 we thus want 0Z to 0Z
     # So to get 9am to 9am from BARRA2 we need the 18, 00, 6, 12, 18 cycles
-    cycle_start = datetime.combine(target_date, time(hour=18)) - timedelta(days=1)
-    cycle_end = cycle_start + timedelta(days=1)
+    cycle_end = datetime.combine(target_date, time(hour=18))
+    cycle_start = cycle_end - timedelta(days=1)
 
     cycle_dts = arange(cycle_start, cycle_end + timedelta(seconds=1),
-                       timedelta(hours=6), ).astype(datetime)
+                       timedelta(hours=6)).astype(datetime)
 
     # Set the measurement name and aggregate func for each obs
     if obs_name == "tmax":
@@ -240,31 +259,24 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 
 
 # Plotting Methods
-def plot_contour_map(lons, lats, vals, title=None):
-    mesh_lons, mesh_lats = meshgrid(lons, lats)
-
-    ax = plt.axes(projection=crs.PlateCarree(
-        central_longitude=BARRA2_CENTRAL_LON))
-    ax.coastlines()
-
-    if title:
-        plt.title(title)
-
-    plt.contourf(mesh_lons, mesh_lats, vals, levels=100,
-                 transform=crs.PlateCarree(), cmap="turbo")
-
-    plt.tight_layout()
-    plt.colorbar(orientation="horizontal", shrink=0.7)
-
-
-def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True):
+def plot_contour_map_iris(iris_cube, title_str=None, print_stats=True,
+                          cmap=colourmap_name, centered_cmap=False,
+                          mask_oceans=False):
     plt.figure(title_str)
 
     ax = plt.axes(projection=crs.PlateCarree(
         central_longitude=BARRA2_CENTRAL_LON))
-    ax.coastlines()
 
-    iplt.contourf(iris_cube, levels=100, cmap="turbo")
+    if mask_oceans:
+        # Note: color bars for iris_cube will still reflect the full dataset
+        # TODO: add true masking instead of just cosmetic masking
+        ax.add_feature(cartopy_feature.OCEAN, zorder=2,
+                       edgecolor='black', facecolor='white')
+    else:
+        ax.coastlines()
+
+    iplt.contourf(iris_cube, levels=100, cmap=cmap,
+                  norm=CenteredNorm() if centered_cmap else None)
 
     if print_stats:
         cube_min = iris_cube.data.min()
@@ -284,22 +296,26 @@ def main():
     # Use a temp_dir to unpack barra archives into.
     # with at this scope so that IRIS lazy loading doesn't lose the file
     with TemporaryDirectory() as temp_dir:
-        test_date = date(year=2017, month=7, day=2)
+        test_date = date(year=2017, month=9, day=2)
 
         for obs_name in OBS_NAMES:
             print(obs_name)
 
             cube_awap, cube_barra = get_data_for_day(test_date, obs_name, temp_dir)
 
-            if False:
-                plot_contour_map_iris(cube_awap, obs_name + ": AWAP")
+            if True:
+                # Mask oceans in AWAP since there aren't obs taken at sea
+                plot_contour_map_iris(cube_awap, obs_name + ": AWAP", mask_oceans=True)
                 plot_contour_map_iris(cube_barra, obs_name + ": BARRA")
 
             # Calculate the difference between the two cubes
-            cube_diff = cube_awap - cube_barra
-            cube_diff.rename(obs_name + " error (AWAP - BARRA2)")
+            cube_diff = cube_barra - cube_awap
+            cube_diff.rename(obs_name + " error (BARRA2 - AWAP)")
 
-            plot_contour_map_iris(cube_diff, obs_name + ": AWAP - BARRA")
+            # Plot the diff
+            plot_contour_map_iris(cube_diff, obs_name + ": BARRA - AWAP",
+                                  cmap=diff_colourmap_name, centered_cmap=True,
+                                  mask_oceans=True)
 
             print()
 
