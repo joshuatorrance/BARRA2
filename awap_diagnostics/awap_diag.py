@@ -16,7 +16,8 @@ from tempfile import TemporaryDirectory
 from warnings import catch_warnings, simplefilter
 
 from cartopy import crs, feature as cartopy_feature
-from iris import load, analysis, Constraint, quickplot as iplt
+from iris import load, analysis, Constraint, plot as iplt
+from iris.analysis.stats import pearsonr
 from iris.cube import CubeList
 from matplotlib import pyplot as plt, use
 from matplotlib.colors import CenteredNorm
@@ -60,6 +61,10 @@ BARRA2_CENTRAL_LON = 150
 # Figure parameters
 colourmap_name = "turbo"
 diff_colourmap_name = "RdBu_r"
+
+# Output parameters
+OUT_FORMAT = ".png"
+OUT_DIR = "/home/548/jt4085/testing"
 
 
 # METHODS
@@ -145,10 +150,11 @@ def get_awap_data_for_day(target_date, obs_name):
     # the day of observation, and the maximum temperature against the previous
     # day."
     # http://www.bom.gov.au/climate/cdo/about/definitionstemp.shtml
-    # TODO: I haven't quite wrapped my brain around this, what's below seems to
-    #  work but doesn't seem right. Understand what's going on or exhaustively
-    #  verify it's correct.
     if obs_name == "tmin":
+        target_date += timedelta(days=1)
+    elif obs_name == "tmax":
+        pass
+    elif obs_name == "precip":
         target_date += timedelta(days=1)
 
     # Set the obs_name and year in the path
@@ -265,7 +271,9 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 # Plotting Methods
 def plot_contour_map_iris(iris_cube, ax, print_stats=True,
                           cmap=colourmap_name, centered_cmap=False,
-                          mask_oceans=False, vmin=None, vmax=None, levels=None):
+                          mask_oceans=False,
+                          vmin=None, vmax=None, levels=None,
+                          show_rmse=False):
 
     if mask_oceans:
         # Note: color bars for iris_cube will still reflect the full dataset
@@ -276,9 +284,15 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
         ax.coastlines()
 
     cs = iplt.contourf(iris_cube, levels=levels if levels is not None else 100,
+                       antialiased=False,
                        cmap=cmap,
                        norm=CenteredNorm() if centered_cmap else None,
                        vmin=vmin, vmax=vmax)
+
+    bar = plt.colorbar(orientation="horizontal", pad=0.025)
+    bar.set_label(iris_cube.units)
+
+    plt.title(iris_cube.name())
 
     if print_stats:
         cube_min = iris_cube.data.min()
@@ -287,25 +301,41 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
         cube_std = iris_cube.data.std()
         cube_units = iris_cube.units
 
-        plt.title(plt.gca().get_title() +
-                  "\n(mean: {:.2f}, std: {:.2f} {})".format(
-                      cube_mean, cube_std, cube_units
-                  ))
+        title_str = plt.gca().get_title() + \
+            "\nmean: {:.2f}, std: {:.2f}".format(cube_mean, cube_std)
+            
+        if show_rmse:
+            # Calculate the RMS error
+            # There's a warning here about non-contiguous coordinates
+            with catch_warnings():
+                simplefilter("ignore")
+                cube_rmse = iris_cube.collapsed(["latitude", "longitude"],
+                                                analysis.RMS).data
+
+            title_str += ", rmse: {:.2f}".format(cube_rmse)
+
+        # Add the units to the end
+        title_str += " " + str(cube_units)
+
+        plt.title(title_str)
 
     return cs.levels
 
 
 def plot_obs(obs_name, cube_awap, cube_barra, cube_diff):
-    # Plot on a 1x3 grid (default is 8x6)
-    plt.figure(figsize=(3*4.0, 5.0))
-    plt.suptitle(obs_name)
+    # Plot on a 1x3 grid (default figsize is 8x6)
+    nrows, ncols = 1, 3
+    plt.figure(figsize=(ncols*4.0, 4.5))
 
-    # Plot AWAP and BARRA with shared vmin/vmax
+    # Add a figure title, default ypos is 0.98
+    plt.suptitle(obs_name, fontweight='bold')
+
+    # Plot AWAP and BARRA2 with shared vmin/vmax
     vmin = min(cube_awap.data.min(), cube_barra.data.min())
     vmax = max(cube_awap.data.max(), cube_barra.data.max())
 
     # Mask oceans in AWAP since there aren't obs taken at sea
-    axis = plt.subplot(1, 3, 1,
+    axis = plt.subplot(nrows, ncols, 1,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     levels = plot_contour_map_iris(cube_awap, axis,
                                    mask_oceans=True,
@@ -313,19 +343,19 @@ def plot_obs(obs_name, cube_awap, cube_barra, cube_diff):
     annotation_location = (0.025, 0.025)
     plt.annotate("AWAP", annotation_location, xycoords="axes fraction")
 
-    axis = plt.subplot(1, 3, 2,
+    axis = plt.subplot(nrows, ncols, 2,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_barra, axis,
                           vmin=vmin, vmax=vmax, levels=levels)
-    plt.annotate("BARRA", annotation_location, xycoords="axes fraction")
+    plt.annotate("BARRA2", annotation_location, xycoords="axes fraction")
 
     # Plot the diff
-    axis = plt.subplot(1, 3, 3,
+    axis = plt.subplot(nrows, ncols, 3,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_diff, axis,
                           cmap=diff_colourmap_name, centered_cmap=True,
-                          mask_oceans=True)
-    plt.annotate("BARRA - AWAP", annotation_location, xycoords="axes fraction")
+                          mask_oceans=True, show_rmse=True)
+    plt.annotate("BARRA2 - AWAP", annotation_location, xycoords="axes fraction")
 
     plt.tight_layout()
 
@@ -335,24 +365,35 @@ def main():
     # Use a temp_dir to unpack barra archives into.
     # with at this scope so that IRIS lazy loading doesn't lose the file
     with TemporaryDirectory() as temp_dir:
-        test_date = date(year=2017, month=9, day=2)
+        target_date = date(year=2017, month=9, day=7)
 
         for obs_name in OBS_NAMES:
             print(obs_name)
 
-            cube_awap, cube_barra = get_data_for_day(test_date, obs_name, temp_dir)
+            cube_awap, cube_barra = get_data_for_day(target_date, obs_name,
+                                                     temp_dir)
 
             # Calculate the difference between the two cubes
             cube_diff = cube_barra - cube_awap
             cube_diff.rename(obs_name + " error (BARRA2 - AWAP)")
 
+            # Calculate Pearson's r spatial correlation coefficient
+            # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
+            if False:
+                pearsonr_correlation = pearsonr(
+                    cube_barra, cube_awap).data
+
+                print(pearsonr_correlation)
+
             plot_obs(obs_name, cube_awap, cube_barra, cube_diff)
 
             print()
 
-            break
-
-        plt.show()
+            # Save the figure
+            out_filename = target_date.strftime("%Y%m%d-") + obs_name + \
+                OUT_FORMAT
+            out_path = join(OUT_DIR, out_filename)
+            plt.savefig(out_path)
 
 
 if __name__ == "__main__":
