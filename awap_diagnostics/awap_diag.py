@@ -7,7 +7,8 @@
 # conda/analysis3-22.04
 
 # IMPORTS
-from datetime import date, datetime, time, timedelta
+from argparse import ArgumentParser, ArgumentTypeError
+from datetime import datetime, time, timedelta
 from glob import glob
 from os import mkdir
 from os.path import join
@@ -28,6 +29,9 @@ from numpy import arange
 use('TKAgg')
 
 # PARAMETERS
+# Input command line argument date format
+COMMANDLINE_DATE_FORMAT = "%Y%m%d"
+
 # AWAP
 AWAP_DIR = "/g/data/zv2/agcd/v1"
 
@@ -76,7 +80,16 @@ def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
 
     path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
 
-    archive_filepath = glob(path)[0]
+    try:
+        archive_filepath = glob(path)[0]
+    except IndexError:
+        # globs returns an empty list when there's no matching files and we'll
+        # have an IndexError
+        msg = "No matching BARRA2 files for {} on {} found at {}".format(
+            obs_name, dt, path)
+        print(msg)
+
+        raise FileNotFoundError(msg)
 
     # Unpack tars to temporary location
     cycle_temp_dir = join(temp_dir, obs_name + '-' + dt.strftime(DT_FORMAT))
@@ -100,8 +113,6 @@ def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
 
 
 def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
-    # TODO: crash elegantly when no data for a date found
-
     # AWAP
     cube_awap = get_awap_data_for_day(target_date, obs_name)
 
@@ -164,7 +175,16 @@ def get_awap_data_for_day(target_date, obs_name):
         year=target_date.year)
 
     # Get the filename
-    filepath = glob(path)[0]
+    try:
+        filepath = glob(path)[0]
+    except IndexError:
+        # globs returns an empty list when there's no matching files, so we'll
+        # have an IndexError
+        msg = "No matching AWAP files for {} on {} found for AWAP at {}".format(
+            obs_name, target_date, path)
+        print(msg)
+
+        raise FileNotFoundError(msg)
 
     # Load the data file
     cube = get_awap_data(filepath)
@@ -322,7 +342,7 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
     return cs.levels
 
 
-def plot_obs(obs_name, cube_awap, cube_barra, cube_diff):
+def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
     # Plot on a 1x3 grid (default figsize is 8x6)
     nrows, ncols = 1, 3
     plt.figure(figsize=(ncols*4.0, 4.5))
@@ -360,16 +380,17 @@ def plot_obs(obs_name, cube_awap, cube_barra, cube_diff):
     plt.tight_layout()
 
 
-# MAIN
-def main():
+# Top level method
+def get_and_plot_data(target_date, output_dir):
+    print("Getting AWAP and BARRA2 data for", target_date)
+
     # Use a temp_dir to unpack barra archives into.
-    # with at this scope so that IRIS lazy loading doesn't lose the file
+    # with at this scope so that IRIS' lazy loading doesn't lose the file
     with TemporaryDirectory() as temp_dir:
-        target_date = date(year=2017, month=9, day=7)
-
         for obs_name in OBS_NAMES:
-            print(obs_name)
+            print("Processing", obs_name)
 
+            # Get the data for AWAP and BARRA2
             cube_awap, cube_barra = get_data_for_day(target_date, obs_name,
                                                      temp_dir)
 
@@ -385,15 +406,50 @@ def main():
 
                 print(pearsonr_correlation)
 
-            plot_obs(obs_name, cube_awap, cube_barra, cube_diff)
+            # Plot the data
+            print("\tPlotting data")
+            plot_data(obs_name, cube_awap, cube_barra, cube_diff)
+
+            # Save the figure
+            out_filename = target_date.strftime("%Y%m%d-") + obs_name + OUT_FORMAT
+            out_path = join(output_dir, out_filename)
+
+            print("\tSaving figure to", out_path)
+            plt.savefig(out_path)
 
             print()
 
-            # Save the figure
-            out_filename = target_date.strftime("%Y%m%d-") + obs_name + \
-                OUT_FORMAT
-            out_path = join(OUT_DIR, out_filename)
-            plt.savefig(out_path)
+
+# MAIN
+def parse_args():
+    # Date time func to parse date command line arg
+    def valid_date(s):
+        try:
+            # Parse date from the input string
+            return datetime.strptime(s, COMMANDLINE_DATE_FORMAT).date()
+        except ValueError:
+            raise ArgumentTypeError("Not a valid date: {0!r}".format(s))
+
+    parser = ArgumentParser(prog="awap_diag.py",
+                            description="This script gets AWAP data from project zv2 and BARRA2 data from hd50 for a "
+                                        "given date and plots them against each other, outputting as figure to the "
+                                        "supplied directory as a png image.")
+
+    parser.add_argument("-o", "--output-dir", nargs="?", required=True,
+                        help="Output directory for the figures.")
+    parser.add_argument("-d", "--date", nargs="?", required=True, type=valid_date,
+                        help="Date to grab the data for. Use the format YYYYMMDD.")
+
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    target_date = args.date
+    output_dir = args.output_dir
+    #target_date = date(year=2017, month=9, day=7)
+
+    get_and_plot_data(target_date, output_dir)
 
 
 if __name__ == "__main__":
