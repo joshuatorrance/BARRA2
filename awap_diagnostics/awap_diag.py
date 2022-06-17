@@ -1,7 +1,7 @@
-# Initial script to explore how to use the AWAP data to validate BARRA2 data.
+# Script to generate diagnostic figures comparing BARRA2 to AWAP data.
 #
-# Docs for netCDF4 can be found here:
-# https://unidata.github.io/netcdf4-python/#creatingopeningclosing-a-netcdf-file
+# Use with:
+# python3 awap_diag.py -o /OUTPUT/DIR/PATH -d YYYYMMDD
 #
 # Uses this module:
 # conda/analysis3-22.04
