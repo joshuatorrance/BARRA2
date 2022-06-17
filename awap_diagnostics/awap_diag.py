@@ -3,7 +3,7 @@
 # Docs for netCDF4 can be found here:
 # https://unidata.github.io/netcdf4-python/#creatingopeningclosing-a-netcdf-file
 #
-# Uses the module:
+# Uses this module:
 # conda/analysis3-22.04
 
 # IMPORTS
