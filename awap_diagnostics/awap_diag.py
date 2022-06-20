@@ -25,8 +25,7 @@ from matplotlib.colors import CenteredNorm
 from numpy import arange
 
 # Iris/conda seem to want to use QT for matplotlib.
-# Change it back to TK if running interactive (i.e. with plt.show())
-# use('TKAgg')
+use('TKAgg')
 
 # PARAMETERS
 # Input command line argument date format
