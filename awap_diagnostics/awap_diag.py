@@ -25,8 +25,8 @@ from matplotlib.colors import CenteredNorm
 from numpy import arange
 
 # Iris/conda seem to want to use QT for matplotlib.
-# Change it back to TK
-use('TKAgg')
+# Change it back to TK if running interactive (i.e. with plt.show())
+# use('TKAgg')
 
 # PARAMETERS
 # Input command line argument date format
@@ -276,7 +276,8 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     # Trim the ends of the cube since we only need 00Z to 00Z
     earliest = datetime.combine(target_date, time(hour=0))
     latest = earliest + timedelta(days=1)
-    time_constraint = Constraint(time=lambda cell: earliest <= cell.point <= latest)
+    time_constraint = Constraint(
+        time=lambda cell: earliest <= cell.point <= latest)
     concat_cube = concat_cube.extract(time_constraint)
 
     # Collapse along the time axis
@@ -376,7 +377,8 @@ def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
     plot_contour_map_iris(cube_diff, axis,
                           cmap=diff_colourmap_name, centered_cmap=True,
                           mask_oceans=True, show_rmse=True)
-    plt.annotate("BARRA2 - AWAP", annotation_location, xycoords="axes fraction")
+    plt.annotate("BARRA2 - AWAP", annotation_location,
+                 xycoords="axes fraction")
 
     plt.tight_layout()
 
