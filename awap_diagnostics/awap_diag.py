@@ -68,6 +68,7 @@ diff_colourmap_name = "RdBu_r"
 
 # Output parameters
 OUT_FORMAT = ".png"
+OUT_FILENAME_TEMPLATE = "{year:04d}{month:02d}{day:02d}-{obs_name}" + OUT_FORMAT
 OUT_DIR = "/home/548/jt4085/testing"
 
 
@@ -381,7 +382,8 @@ def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
 
 
 # Top level method
-def get_and_plot_data(target_date, output_dir):
+def get_and_plot_data(target_date, output_dir,
+                      output_filename_template=OUT_FILENAME_TEMPLATE):
     print("Getting AWAP and BARRA2 data for", target_date)
 
     # Use a temp_dir to unpack barra archives into.
@@ -411,7 +413,12 @@ def get_and_plot_data(target_date, output_dir):
             plot_data(obs_name, cube_awap, cube_barra, cube_diff)
 
             # Save the figure
-            out_filename = target_date.strftime("%Y%m%d-") + obs_name + OUT_FORMAT
+            out_filename = output_filename_template.format(
+                year=target_date.year,
+                month=target_date.month,
+                day=target_date.day,
+                obs_name=obs_name)
+
             out_path = join(output_dir, out_filename)
 
             print("\tSaving figure to", out_path)
@@ -432,7 +439,7 @@ def parse_args():
 
     parser = ArgumentParser(prog="awap_diag.py",
                             description="This script gets AWAP data from project zv2 and BARRA2 data from hd50 for a "
-                                        "given date and plots them against each other, outputting as figure to the "
+                                        "given date and plots them against each other, outputting a figure to the "
                                         "supplied directory as a png image.")
 
     parser.add_argument("-o", "--output-dir", nargs="?", required=True,
@@ -447,7 +454,6 @@ def main():
     args = parse_args()
     target_date = args.date
     output_dir = args.output_dir
-    #target_date = date(year=2017, month=9, day=7)
 
     get_and_plot_data(target_date, output_dir)
 
