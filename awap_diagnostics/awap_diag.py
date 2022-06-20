@@ -242,13 +242,13 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
 
     # Set the measurement name and aggregate func for each obs
     if obs_name == "tmax":
-        measurement = BARRA2_MAX_TEMP_MEASUREMENT 
+        measurement = BARRA2_MAX_TEMP_MEASUREMENT
         aggregate_func = analysis.MAX
     elif obs_name == "tmin":
-        measurement = BARRA2_MIN_TEMP_MEASUREMENT 
+        measurement = BARRA2_MIN_TEMP_MEASUREMENT
         aggregate_func = analysis.MIN
     elif obs_name == "precip":
-        measurement = BARRA2_PRECIP_MEASUREMENT 
+        measurement = BARRA2_PRECIP_MEASUREMENT
         aggregate_func = analysis.SUM
     else:
         raise ValueError(
@@ -324,7 +324,7 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
 
         title_str = plt.gca().get_title() + \
             "\nmean: {:.2f}, std: {:.2f}".format(cube_mean, cube_std)
-            
+
         if show_rmse:
             # Calculate the RMS error
             # There's a warning here about non-contiguous coordinates
