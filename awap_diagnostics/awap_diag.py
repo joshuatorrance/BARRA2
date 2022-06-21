@@ -416,14 +416,6 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
                           mask_oceans=False,
                           vmin=None, vmax=None, levels=None,
                           show_rmse=False, show_pearson=None):
-    if mask_oceans:
-        # Note: color bars for iris_cube will still reflect the full dataset
-        # TODO: add true masking instead of just cosmetic masking
-        ax.add_feature(cartopy_feature.OCEAN, zorder=2,
-                       edgecolor='black', facecolor='white')
-    else:
-        ax.coastlines()
-
     cs = iplt.contourf(iris_cube, levels=levels if levels is not None else 100,
                        antialiased=False,
                        cmap=cmap,
@@ -463,6 +455,14 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
             title_str += "\nr: {:.2f}".format(show_pearson)
 
         plt.title(title_str)
+
+    if mask_oceans:
+        # Note: color bars for iris_cube will still reflect the full dataset
+        # TODO: add true masking instead of just cosmetic masking
+        ax.add_feature(cartopy_feature.OCEAN, zorder=2,
+                       edgecolor='black', facecolor='white')
+    else:
+        ax.coastlines()
 
     return cs.levels
 
