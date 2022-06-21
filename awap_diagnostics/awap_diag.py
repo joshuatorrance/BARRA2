@@ -31,12 +31,10 @@ use('TKAgg')
 # Input command line argument date format
 COMMANDLINE_DATE_FORMAT = "%Y%m%d"
 
-# AWAP
-AWAP_DIR = "/g/data/zv2/agcd/v1"
+# Datetime format for cylc
+CYCLE_DT_FORMAT = "%Y%m%dT%H%MZ"
 
-TMAX_DIR = join(AWAP_DIR, "{obs_name}", "{obs_aggregate}", "r005", "01day")
-TMAX_FILENAME = "agcd_v1_{obs_name}_{obs_aggregate}_r005_daily_{year}.nc"
-
+# Observation details
 OBS_NAMES = ["precip", "tmax", "tmin"]
 OBS_AGGREGATE_FUNCS = {
     "precip": "total",
@@ -44,10 +42,30 @@ OBS_AGGREGATE_FUNCS = {
     "tmin": "mean"
 }
 
+# AWAP data
+AWAP_DIR = "/g/data/zv2/agcd/v1"
+
+AWAP_OBS_DIR = join(AWAP_DIR, "{obs_name}", "{obs_aggregate}", "r005", "01day")
+AWAP_OBS_FILENAME = "agcd_v1_{obs_name}_{obs_aggregate}_r005_daily_{year}.nc"
+
+# ERA5 data
+# https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
+ERA5_DIR = "/g/data/rt52/"
+
+ERA5_OBS_DIR = join(ERA5_DIR, "era5", "single-levels", "reanalysis",
+                    "{era5_obs_name}", "{year:04d}")
+ERA5_OBS_FILENAME = "{era5_obs_name}_era5_oper_sfc_{year:04d}{month:02d}*.nc"
+
+# This dict maps the obs names to those used by ERA5
+ERA5_OBS_NAMES_MAP = {
+    "precip": "mtpr",
+    "tmax": "2t",
+    "tmin": "2t"
+}
+
+# BARRA2 data
 BARRA2_DIR = "/g/data/hd50/barra2/data/prod/{user}/cg406_{year}.r1/{year}/" \
              "{month:02d}/{year}{month:02d}{day:02d}T{hour:02d}00Z/nc"
-
-DT_FORMAT = "%Y%m%dT%H%MZ"
 
 # SLV - single level variables - 2D field of outputs
 BARRA2_FORECAST_FILENAME = "SLV1H"
@@ -67,63 +85,55 @@ diff_colourmap_name = "RdBu_r"
 
 # Output parameters
 OUT_FORMAT = ".png"
-OUT_FILENAME_TEMPLATE = "{year:04d}{month:02d}{day:02d}-{obs_name}" + OUT_FORMAT
+OUT_FILENAME_TEMPLATE = "{reference_name}_{year:04d}{month:02d}{day:02d}-{obs_name}" + OUT_FORMAT
 OUT_DIR = "/home/548/jt4085/testing"
 
 
 # METHODS
 # Data methods
-def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
-    # Use the datetime to find the appropriate directory/suite/cycle
-    path = BARRA2_DIR.format(
-        user="*", year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
-
-    path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
-
-    try:
-        archive_filepath = glob(path)[0]
-    except IndexError:
-        # globs returns an empty list when there's no matching files and we'll
-        # have an IndexError
-        msg = "No matching BARRA2 files for {} on {} found at {}".format(
-            obs_name, dt, path)
-        print(msg)
-
-        raise FileNotFoundError(msg)
-
-    # Unpack tars to temporary location
-    cycle_temp_dir = join(temp_dir, obs_name + '-' + dt.strftime(DT_FORMAT))
-    mkdir(cycle_temp_dir)
-    unpack_archive(archive_filepath, cycle_temp_dir)
-
-    # File in the archive are something like:
-    # -nc/PRS1H
-    #  -air_temp_uv-barra_r2-hres-201707020300-201707020900.nc
-    #  -frac_time_p_above-barra_r2-hres-201707020300-201707020900.nc
-    #  ...
-    filepath = glob(join(cycle_temp_dir,
-                         "nc",
-                         BARRA2_FORECAST_FILENAME,
-                         measurement + "*.nc"))[0]
-
-    # Load the cube
-    cube = get_data_iris(filepath)
+def get_data_iris(filepath):
+    cube = load(filepath)[0]
 
     return cube
 
 
-def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
+def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True,
+                     quiet_exceptions=False):
+    # ERA5
+    try:
+        cube_era5 = get_era5_data_for_date(target_date, obs_name)
+    except FileNotFoundError as e:
+        # Message has already been printed.
+        if not quiet_exceptions:
+            raise e
+        else:
+            cube_era5 = None
+
     # AWAP
-    cube_awap = get_awap_data_for_day(target_date, obs_name)
+    try:
+        cube_awap = get_awap_data_for_day(target_date, obs_name)
+    except FileNotFoundError as e:
+        # Message has already been printed.
+        if not quiet_exceptions:
+            raise e
+        else:
+            cube_awap = None
 
     # BARRA2
     cube_barra = get_barra2_data_for_date(
-        target_date, temporary_dir, obs_name)
+        target_date, temporary_dir, obs_name,
+        quiet_exceptions=quiet_exceptions)
 
-    # Convert BARRA2 units to match AWAP units
+    # Convert BARRA2 & ERA5 units to match AWAP units
     if obs_name == "tmax" or obs_name == "tmin":
-        # Convert barra from K to degrees C to match AWAP
+        # Convert BARRA2 & ERA5 from K to degrees C to match AWAP
         cube_barra.convert_units("celsius")
+
+        if cube_era5:
+            cube_era5.convert_units("celsius")
+
+            # Rename ERA5 from "2 metre temperature" to match the others
+            cube_era5.rename("air_temperature")
     elif obs_name == "precip":
         # BARRA2 uses kg per m^2 per s
         # 1 kg per m^2 of water = 1mm of thickness
@@ -133,19 +143,34 @@ def get_data_for_day(target_date, obs_name, temporary_dir, regrid=True):
         cube_barra.rename("thickness_of_precipitation")
         cube_barra.units = "mm"
 
-        # Rename AWAP to have shorter matching name
-        cube_awap.rename("thickness_of_precipitation")
+        if cube_era5:
+            # Convert ERA5's precip units just like BARRA2's
+            cube_era5.convert_units('kg m-2 hour-1')
+            cube_era5.rename("thickness_of_precipitation")
+            cube_era5.units = "mm"
 
-    # Regrid barra to match the smaller awap grid
+        if cube_awap:
+            # Rename AWAP to have shorter matching name
+            cube_awap.rename("thickness_of_precipitation")
+
+    # Regrid BARRA2 & ERA5 to match the smaller AWAP grid
+    # TODO: Can regrid ERA5 to BARRA2 grid instead of ERA5 to AWAP to compare
+    #  ERA5 and BARRA2.
     if regrid:
-        # Remove the coord system from awap to allow regridding
-        # Should I instead be adding a coord system to barra?
-        cube_awap.coord("latitude").coord_system = None
-        cube_awap.coord("longitude").coord_system = None
+        if cube_awap:
+            # Remove the coord system from awap to allow regridding
+            cube_awap.coord("latitude").coord_system = None
+            cube_awap.coord("longitude").coord_system = None
 
-        cube_barra = cube_barra.regrid(cube_awap, analysis.Linear())
+            cube_barra = cube_barra.regrid(cube_awap, analysis.Linear())
 
-    return cube_awap, cube_barra
+            if cube_era5:
+                cube_era5 = cube_era5.regrid(cube_awap, analysis.Linear())
+        elif cube_era5:
+            # If AWAP is missing regrid ERA5 to BARRA2's grid
+            cube_era5 = cube_era5.regrid(cube_barra, analysis.Linear())
+
+    return cube_awap, cube_barra, cube_era5
 
 
 def get_awap_data_for_day(target_date, obs_name):
@@ -169,7 +194,7 @@ def get_awap_data_for_day(target_date, obs_name):
         target_date += timedelta(days=1)
 
     # Set the obs_name and year in the path
-    path = join(TMAX_DIR, TMAX_FILENAME).format(
+    path = join(AWAP_OBS_DIR, AWAP_OBS_FILENAME).format(
         obs_name=obs_name,
         obs_aggregate=OBS_AGGREGATE_FUNCS[obs_name],
         year=target_date.year)
@@ -187,7 +212,7 @@ def get_awap_data_for_day(target_date, obs_name):
         raise FileNotFoundError(msg)
 
     # Load the data file
-    cube = get_awap_data(filepath)
+    cube = get_data_iris(filepath)
 
     # Note on timezones
     #  AWAP data is in the "local timezone"
@@ -207,19 +232,48 @@ def get_awap_data_for_day(target_date, obs_name):
     return cube_slice
 
 
-def get_awap_data(filepath):
+def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
+    # Use the datetime to find the appropriate directory/suite/cycle
+    path = BARRA2_DIR.format(
+        user="*", year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
+
+    path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
+
+    try:
+        archive_filepath = glob(path)[0]
+    except IndexError:
+        # globs returns an empty list when there's no matching files and we'll
+        # have an IndexError
+        msg = "No matching BARRA2 files for {} on {} found at {}".format(
+            obs_name, dt, path)
+        print(msg)
+
+        raise FileNotFoundError(msg)
+
+    # Unpack tars to temporary location
+    cycle_temp_dir = join(temp_dir, obs_name + '-' +
+                          dt.strftime(CYCLE_DT_FORMAT))
+    mkdir(cycle_temp_dir)
+    unpack_archive(archive_filepath, cycle_temp_dir)
+
+    # File in the archive are something like:
+    # -nc/PRS1H
+    #  -air_temp_uv-barra_r2-hres-201707020300-201707020900.nc
+    #  -frac_time_p_above-barra_r2-hres-201707020300-201707020900.nc
+    #  ...
+    filepath = glob(join(cycle_temp_dir,
+                         "nc",
+                         BARRA2_FORECAST_FILENAME,
+                         measurement + "*.nc"))[0]
+
+    # Load the cube
     cube = get_data_iris(filepath)
 
     return cube
 
 
-def get_data_iris(filepath):
-    cube = load(filepath)[0]
-
-    return cube
-
-
-def get_barra2_data_for_date(target_date, temp_dir, obs_name):
+def get_barra2_data_for_date(target_date, temp_dir, obs_name,
+                             quiet_exceptions=False):
     # AWAP 'days' are 9am to 9am in AU local time
     # http://www.bom.gov.au/climate/austmaps/about-temp-maps.shtml
 
@@ -258,7 +312,14 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     for dt in cycle_dts:
         print("\tGetting BARRA2 data for:",  dt)
 
-        cube = get_barra2_cycle_data(dt, obs_name, measurement, temp_dir)
+        try:
+            cube = get_barra2_cycle_data(dt, obs_name, measurement, temp_dir)
+        except FileNotFoundError as e:
+            if quiet_exceptions:
+                continue
+            else:
+                raise e
+
 
         # Delete all attributes since they aren't used and
         #  interfere with merging.
@@ -268,6 +329,14 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
         cube.remove_coord("forecast_reference_time")
 
         cubes.append(cube)
+
+    # If there's no BARRA2 data then there's something's gone wrong and we
+    # should fail loudly regardless of quiet_exceptions
+    if len(cubes) == 0:
+        msg = "No BARRA2 data found for {obs_name} on {date}.".format(
+            obs_name=obs_name, date=target_date)
+        print(msg)
+        raise FileNotFoundError(msg)
 
     # Merge the cubes with concatenate
     concat_cube = cubes.concatenate_cube()
@@ -289,13 +358,65 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name):
     return concat_cube
 
 
+def get_era5_data_for_date(target_date, obs_name):
+    # Set aggregate func for each obs
+    if obs_name == "tmax":
+        aggregate_func = analysis.MAX
+    elif obs_name == "tmin":
+        aggregate_func = analysis.MIN
+    elif obs_name == "precip":
+        aggregate_func = analysis.SUM
+    else:
+        raise ValueError(
+            "obs_name ({}) not valid, should be one of {}.".format(
+                obs_name, ", ".join(OBS_NAMES)))
+
+    print("\tGetting ERA5 data for:", target_date)
+
+    # Set the obs_name (for ERA5) and date in the path
+    path = join(ERA5_OBS_DIR, ERA5_OBS_FILENAME).format(
+        era5_obs_name=ERA5_OBS_NAMES_MAP[obs_name],
+        year=target_date.year,
+        month=target_date.month)
+
+    # Get the filename
+    try:
+        filepath = glob(path)[0]
+    except IndexError:
+        # globs returns an empty list when there's no matching files, so we'll
+        # have an IndexError
+        msg = "No matching ERA5 files for {} on {} found for AWAP at {}".format(
+            obs_name, target_date, path)
+        print(msg)
+
+        raise FileNotFoundError(msg)
+
+    # Load the data file
+    cube = get_data_iris(filepath)
+
+    # Filter out times earlier than the supplied date
+    start = datetime.combine(target_date, time())
+    end = datetime.combine(target_date, time()) + timedelta(days=1)
+    cube_slice = cube.extract(
+        Constraint(time=lambda cell: start <= cell.point < end)
+    )
+
+    # Collapse along the time axis
+    # There's a warning here about non-contiguous coordinates
+    with catch_warnings():
+        simplefilter("ignore")
+
+        cube_slice = cube_slice.collapsed('time', aggregate_func)
+
+    return cube_slice
+
+
 # Plotting Methods
 def plot_contour_map_iris(iris_cube, ax, print_stats=True,
                           cmap=colourmap_name, centered_cmap=False,
                           mask_oceans=False,
                           vmin=None, vmax=None, levels=None,
                           show_rmse=False):
-
     if mask_oceans:
         # Note: color bars for iris_cube will still reflect the full dataset
         # TODO: add true masking instead of just cosmetic masking
@@ -343,7 +464,8 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
     return cs.levels
 
 
-def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
+def plot_data(obs_name, cube_reference, cube_barra, cube_diff, reference_name,
+              mask_reference_oceans=False):
     # Plot on a 1x3 grid (default figsize is 8x6)
     nrows, ncols = 1, 3
     plt.figure(figsize=(ncols*4.0, 4.5))
@@ -351,32 +473,39 @@ def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
     # Add a figure title, default ypos is 0.98
     plt.suptitle(obs_name, fontweight='bold')
 
-    # Plot AWAP and BARRA2 with shared vmin/vmax
-    vmin = min(cube_awap.data.min(), cube_barra.data.min())
-    vmax = max(cube_awap.data.max(), cube_barra.data.max())
+    # Plot Reference and BARRA2 with shared vmin/vmax and levels
+    vmin = min(cube_reference.data.min(), cube_barra.data.min())
+    vmax = max(cube_reference.data.max(), cube_barra.data.max())
 
-    # Mask oceans in AWAP since there aren't obs taken at sea
-    axis = plt.subplot(nrows, ncols, 1,
-                       projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
-    levels = plot_contour_map_iris(cube_awap, axis,
-                                   mask_oceans=True,
-                                   vmin=vmin, vmax=vmax)
+    # Construct levels manually since, add a bit to arange's top level since it not included
+    d_level = (vmax-vmin)/100
+    levels = arange(vmin, vmax + d_level/2, d_level)
+
+    # Annotate the plots in the bottom left corner
     annotation_location = (0.025, 0.025)
-    plt.annotate("AWAP", annotation_location, xycoords="axes fraction")
 
+    # BARRA2
     axis = plt.subplot(nrows, ncols, 2,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_barra, axis,
                           vmin=vmin, vmax=vmax, levels=levels)
     plt.annotate("BARRA2", annotation_location, xycoords="axes fraction")
 
+    # Reference
+    axis = plt.subplot(nrows, ncols, 1,
+                       projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
+    plot_contour_map_iris(cube_reference, axis,
+                          mask_oceans=mask_reference_oceans,
+                          vmin=vmin, vmax=vmax, levels=levels)
+    plt.annotate(reference_name, annotation_location, xycoords="axes fraction")
+
     # Plot the diff
     axis = plt.subplot(nrows, ncols, 3,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_diff, axis,
                           cmap=diff_colourmap_name, centered_cmap=True,
-                          mask_oceans=True, show_rmse=True)
-    plt.annotate("BARRA2 - AWAP", annotation_location,
+                          mask_oceans=mask_reference_oceans, show_rmse=True)
+    plt.annotate("BARRA2 - " + reference_name, annotation_location,
                  xycoords="axes fraction")
 
     plt.tight_layout()
@@ -384,8 +513,9 @@ def plot_data(obs_name, cube_awap, cube_barra, cube_diff):
 
 # Top level method
 def get_and_plot_data(target_date, output_dir,
-                      output_filename_template=OUT_FILENAME_TEMPLATE):
-    print("Getting AWAP and BARRA2 data for", target_date)
+                      output_filename_template=OUT_FILENAME_TEMPLATE,
+                      quiet_exceptions=False):
+    print("Getting AWAP, ERA5, and BARRA2 data for", target_date)
 
     # Use a temp_dir to unpack barra archives into.
     # with at this scope so that IRIS' lazy loading doesn't lose the file
@@ -394,38 +524,58 @@ def get_and_plot_data(target_date, output_dir,
             print("Processing", obs_name)
 
             # Get the data for AWAP and BARRA2
-            cube_awap, cube_barra = get_data_for_day(target_date, obs_name,
-                                                     temp_dir)
+            cube_awap, cube_barra, cube_era5 = get_data_for_day(
+                target_date,
+                obs_name,
+                temp_dir,
+                quiet_exceptions=quiet_exceptions)
 
-            # Calculate the difference between the two cubes
-            cube_diff = cube_barra - cube_awap
-            cube_diff.rename(obs_name + " error (BARRA2 - AWAP)")
+            # Add refernce cubes to a list so we can handle missing data
+            ref_list = []
+            if cube_awap:
+                ref_list.append((cube_awap, "AWAP"))
+            if cube_era5:
+                ref_list.append((cube_era5, "ERA5"))
+            if len(ref_list)==0:
+                msg = "No reference data to compare BARRA2 to. Skipping figure creation."
+                print(msg)
 
-            # Calculate Pearson's r spatial correlation coefficient
-            # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
-            if False:
-                pearsonr_correlation = pearsonr(
-                    cube_barra, cube_awap).data
+                if not quiet_exceptions:
+                    raise FileNotFoundError(msg)
 
-                print(pearsonr_correlation)
+            for cube_ref, ref_name in ref_list:
+                # Calculate the difference between BARRA2 and the other two cubes
+                cube_diff = cube_barra - cube_ref
+                cube_diff.rename(obs_name + " error (BARRA2 - " + ref_name + ")")
 
-            # Plot the data
-            print("\tPlotting data")
-            plot_data(obs_name, cube_awap, cube_barra, cube_diff)
+                # Calculate Pearson's r spatial correlation coefficient
+                # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
+                if False:
+                    pearsonr_correlation = pearsonr(
+                        cube_barra, cube_ref).data
 
-            # Save the figure
-            out_filename = output_filename_template.format(
-                year=target_date.year,
-                month=target_date.month,
-                day=target_date.day,
-                obs_name=obs_name)
+                # Plot the data and save the figures
+                print("\tPlotting data for", ref_name)
 
-            out_path = join(output_dir, out_filename)
+                # Mask oceans in AWAP since there aren't obs taken at sea
+                plot_data(obs_name, cube_ref, cube_barra, cube_diff, ref_name,
+                          mask_reference_oceans=ref_name=="AWAP")
 
-            print("\tSaving figure to", out_path)
-            plt.savefig(out_path)
+                # Save figure
+                out_filename = output_filename_template.format(
+                    year=target_date.year,
+                    month=target_date.month,
+                    day=target_date.day,
+                    obs_name=obs_name,
+                    reference_name=ref_name)
+
+                out_path = join(output_dir, out_filename)
+
+                print("\tSaving", ref_name, "figure to", out_path)
+                plt.savefig(out_path)
 
             print()
+            break
 
 
 # MAIN
@@ -447,6 +597,10 @@ def parse_args():
                         help="Output directory for the figures.")
     parser.add_argument("-d", "--date", nargs="?", required=True, type=valid_date,
                         help="Date to grab the data for. Use the format YYYYMMDD.")
+    parser.add_argument("-f", "--fail-quietly", required=False, action='store_true',
+                        help="Don't fail if no file is present for one of the datasets. " +
+                             "If none of the datasets for BARRA2 are found then an exception "
+                             "will still be thrown.")
 
     return parser.parse_args()
 
@@ -455,9 +609,11 @@ def main():
     args = parse_args()
     target_date = args.date
     output_dir = args.output_dir
+    quiet_exceptions = args.fail_quietly
 
-    get_and_plot_data(target_date, output_dir)
+    get_and_plot_data(target_date, output_dir, quiet_exceptions=quiet_exceptions)
 
 
 if __name__ == "__main__":
     main()
+
