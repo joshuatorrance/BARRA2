@@ -320,7 +320,6 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name,
             else:
                 raise e
 
-
         # Delete all attributes since they aren't used and
         #  interfere with merging.
         cube.attributes = {}
@@ -536,7 +535,7 @@ def get_and_plot_data(target_date, output_dir,
                 ref_list.append((cube_awap, "AWAP"))
             if cube_era5:
                 ref_list.append((cube_era5, "ERA5"))
-            if len(ref_list)==0:
+            if len(ref_list) == 0:
                 msg = "No reference data to compare BARRA2 to. Skipping figure creation."
                 print(msg)
 
@@ -546,7 +545,8 @@ def get_and_plot_data(target_date, output_dir,
             for cube_ref, ref_name in ref_list:
                 # Calculate the difference between BARRA2 and the other two cubes
                 cube_diff = cube_barra - cube_ref
-                cube_diff.rename(obs_name + " error (BARRA2 - " + ref_name + ")")
+                cube_diff.rename(
+                    obs_name + " error (BARRA2 - " + ref_name + ")")
 
                 # Calculate Pearson's r spatial correlation coefficient
                 # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
@@ -559,7 +559,7 @@ def get_and_plot_data(target_date, output_dir,
 
                 # Mask oceans in AWAP since there aren't obs taken at sea
                 plot_data(obs_name, cube_ref, cube_barra, cube_diff, ref_name,
-                          mask_reference_oceans=ref_name=="AWAP")
+                          mask_reference_oceans=ref_name == "AWAP")
 
                 # Save figure
                 out_filename = output_filename_template.format(
@@ -611,9 +611,9 @@ def main():
     output_dir = args.output_dir
     quiet_exceptions = args.fail_quietly
 
-    get_and_plot_data(target_date, output_dir, quiet_exceptions=quiet_exceptions)
+    get_and_plot_data(target_date, output_dir,
+                      quiet_exceptions=quiet_exceptions)
 
 
 if __name__ == "__main__":
     main()
-
