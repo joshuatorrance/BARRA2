@@ -415,7 +415,7 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
                           cmap=colourmap_name, centered_cmap=False,
                           mask_oceans=False,
                           vmin=None, vmax=None, levels=None,
-                          show_rmse=False):
+                          show_rmse=False, show_pearson=None):
     if mask_oceans:
         # Note: color bars for iris_cube will still reflect the full dataset
         # TODO: add true masking instead of just cosmetic masking
@@ -458,6 +458,10 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
         # Add the units to the end
         title_str += " " + str(cube_units)
 
+        if show_pearson:
+            # Pearson's r correlation is unitless, so put it after the units
+            title_str += "\nr: {:.2f}".format(show_pearson)
+
         plt.title(title_str)
 
     return cs.levels
@@ -499,11 +503,16 @@ def plot_data(obs_name, cube_reference, cube_barra, cube_diff, reference_name,
     plt.annotate(reference_name, annotation_location, xycoords="axes fraction")
 
     # Plot the diff
+    # Calculate Pearson's r spatial correlation coefficient
+    # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
+    pearsonr_correlation = pearsonr(cube_barra, cube_reference).data
+
     axis = plt.subplot(nrows, ncols, 3,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_diff, axis,
                           cmap=diff_colourmap_name, centered_cmap=True,
-                          mask_oceans=mask_reference_oceans, show_rmse=True)
+                          mask_oceans=mask_reference_oceans,
+                          show_rmse=True, show_pearson=pearsonr_correlation)
     plt.annotate("BARRA2 - " + reference_name, annotation_location,
                  xycoords="axes fraction")
 
@@ -548,12 +557,6 @@ def get_and_plot_data(target_date, output_dir,
                 cube_diff.rename(
                     obs_name + " error (BARRA2 - " + ref_name + ")")
 
-                # Calculate Pearson's r spatial correlation coefficient
-                # https://en.wikipedia.org/wiki/Pearson_correlation_coefficient
-                if False:
-                    pearsonr_correlation = pearsonr(
-                        cube_barra, cube_ref).data
-
                 # Plot the data and save the figures
                 print("\tPlotting data for", ref_name)
 
@@ -575,7 +578,6 @@ def get_and_plot_data(target_date, output_dir,
                 plt.savefig(out_path)
 
             print()
-            break
 
 
 # MAIN
