@@ -20,12 +20,13 @@ from cartopy import crs, feature as cartopy_feature
 from iris import load, analysis, Constraint, plot as iplt
 from iris.analysis.stats import pearsonr
 from iris.cube import CubeList
-from matplotlib import pyplot as plt, use
+from matplotlib import pyplot as plt
 from matplotlib.colors import CenteredNorm
 from numpy import arange
 
 # Iris/conda seem to want to use QT for matplotlib.
-use('TKAgg')
+# plt.show is not used so this line is not required.
+#use('TKAgg')
 
 # PARAMETERS
 # Input command line argument date format
@@ -64,7 +65,7 @@ ERA5_OBS_NAMES_MAP = {
 }
 
 # BARRA2 data
-BARRA2_DIR = "/g/data/hd50/barra2/data/prod/{user}/cg406_{year}.r1/{year}/" \
+BARRA2_DIR = "/g/data/hd50/barra2/data/prod/{user}/cg406_{suite_year}.r1/{year}/" \
              "{month:02d}/{year}{month:02d}{day:02d}T{hour:02d}00Z/nc"
 
 # SLV - single level variables - 2D field of outputs
@@ -235,7 +236,8 @@ def get_awap_data_for_day(target_date, obs_name):
 def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
     # Use the datetime to find the appropriate directory/suite/cycle
     path = BARRA2_DIR.format(
-        user="*", year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
+        user="*", suite_year="*",
+        year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
 
     path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
 
