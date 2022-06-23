@@ -427,8 +427,6 @@ def plot_contour_map_iris(iris_cube, ax, print_stats=True,
     plt.title(iris_cube.name())
 
     if print_stats:
-        cube_min = iris_cube.data.min()
-        cube_max = iris_cube.data.max()
         cube_mean = iris_cube.data.mean()
         cube_std = iris_cube.data.std()
         cube_units = iris_cube.units
