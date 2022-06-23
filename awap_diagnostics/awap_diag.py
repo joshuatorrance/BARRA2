@@ -485,14 +485,14 @@ def plot_data(obs_name, cube_reference, cube_barra, cube_diff, reference_name,
     annotation_location = (0.025, 0.025)
 
     # BARRA2
-    axis = plt.subplot(nrows, ncols, 2,
+    axis = plt.subplot(nrows, ncols, 1,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_barra, axis,
                           vmin=vmin, vmax=vmax, levels=levels)
     plt.annotate("BARRA2", annotation_location, xycoords="axes fraction")
 
     # Reference
-    axis = plt.subplot(nrows, ncols, 1,
+    axis = plt.subplot(nrows, ncols, 2,
                        projection=crs.PlateCarree(central_longitude=BARRA2_CENTRAL_LON))
     plot_contour_map_iris(cube_reference, axis,
                           mask_oceans=mask_reference_oceans,
