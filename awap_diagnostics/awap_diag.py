@@ -84,7 +84,6 @@ diff_colourmap_name = "RdBu_r"
 # Output parameters
 OUT_FORMAT = ".png"
 OUT_FILENAME_TEMPLATE = "{reference_name}_{year:04d}{month:02d}{day:02d}-{obs_name}" + OUT_FORMAT
-OUT_DIR = "/home/548/jt4085/testing"
 
 
 # METHODS
