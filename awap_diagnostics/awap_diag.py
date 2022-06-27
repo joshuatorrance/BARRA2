@@ -343,7 +343,7 @@ def get_barra2_data_for_date(target_date, temp_dir, obs_name,
 
         cubes.append(cube)
 
-    # If there's no BARRA2 data then there's something's gone wrong and we
+    # If there's no BARRA2 data then something has gone wrong and we
     # should fail loudly regardless of quiet_exceptions
     if len(cubes) == 0:
         msg = "No BARRA2 data found for {obs_name} on {date}.".format(
