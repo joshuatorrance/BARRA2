@@ -550,7 +550,7 @@ def get_and_plot_data(target_date, output_dir,
                 temp_dir,
                 quiet_exceptions=quiet_exceptions)
 
-            # Add refernce cubes to a list so we can handle missing data
+            # Add reference cubes to a list so we can handle missing data
             ref_list = []
             if cube_awap:
                 ref_list.append((cube_awap, "AWAP"))
