@@ -10,7 +10,7 @@
 from argparse import ArgumentParser, ArgumentTypeError
 from datetime import datetime, time, timedelta
 from glob import glob
-from os import mkdir
+from os import environ, mkdir
 from os.path import join
 from shutil import unpack_archive
 from tempfile import TemporaryDirectory
@@ -62,7 +62,8 @@ ERA5_OBS_NAMES_MAP = {
 }
 
 # BARRA2 data
-BARRA2_DIR = "/g/data/hd50/barra2/data/prod/{user}/cg406_{suite_year}.r1/{year}/" \
+BARRA2_ARCHIVE_DIR = "/g/data/hd50/barra2/data/prod"
+BARRA2_DIR = "{archive_dir}/{user}/{suite_name}/{year}/" \
              "{month:02d}/{year}{month:02d}{day:02d}T{hour:02d}00Z/nc"
 
 # SLV - single level variables - 2D field of outputs
@@ -230,9 +231,24 @@ def get_awap_data_for_day(target_date, obs_name):
 
 
 def get_barra2_cycle_data(dt, obs_name, measurement, temp_dir):
+    # Try to get the suite name from cylc
+    try:
+        suite_name = environ["CYLC_SUITE_NAME"]
+    except KeyError:
+        # We may not be running through cylc
+        suite_name = "*"
+
+    # Try to get the archive directory from cylc
+    try:
+        barra2_archive_dir = environ["ARCH_DIR"]
+    except KeyError:
+        # We may not be running through cylc
+        barra2_archive_dir = BARRA2_ARCHIVE_DIR
+
     # Use the datetime to find the appropriate directory/suite/cycle
     path = BARRA2_DIR.format(
-        user="*", suite_year="*",
+        archive_dir=barra2_archive_dir,
+        user="*", suite_name=suite_name,
         year=dt.year, month=dt.month, day=dt.day, hour=dt.hour)
 
     path = join(path, BARRA2_FORECAST_FILENAME + ".tar")
