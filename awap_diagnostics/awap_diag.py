@@ -224,8 +224,20 @@ def get_awap_data_for_day(target_date, obs_name):
         Constraint(time=lambda cell: cell.point > dt)
     )
 
-    # Take the first time after datetime
-    cube_slice = cube_slice[0, :, :]
+    # For the last day in a datafile the cube will have one less dimension
+    if cube_slice.ndim == 2:
+        # Slice is already 2 dimensions (lat, lon)
+        pass
+    elif cube_slice.ndim == 3:
+        # Slice is three dimensions (time, lat, lon)
+        # Take the first time after datetime constrained on
+        cube_slice = cube_slice[0, :, :]
+    else:
+        msg = "Unexpected number of dimensions in cube array for AWAP " + \
+              "for {} on {}.".format(obs_name, target_date)
+        print(msg)
+        print(cube_slice)
+        raise IOError(msg)
 
     return cube_slice
 
