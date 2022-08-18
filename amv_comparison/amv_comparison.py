@@ -232,38 +232,26 @@ def get_data_from_bufrs_vinc(bufr_paths, compressed=False):
 
         with BufrFile(bufr_path, compressed=compressed) as bufr:
             for bufr_msg in bufr.get_messages():
-                print("*************")
-                
                 num_subsets = bufr_msg.get_value("numberOfSubsets")
-                print("Num subsets:", num_subsets)
 
                 datetimes = bufr_msg.get_datetimes()
 
-                print("Datetimes len:", len(datetimes))
-
                 # There are two lat/lon for each subset
                 lats, lons = bufr_msg.get_locations()
-                print("Lons len:", len(lons))
-                print("Lats len:", len(lats))
                 lats = lats[::2]
                 lons = lons[::2]
 
                 # There are three centre_freqs per subset
                 centre_freqs = bufr_msg.get_value("satelliteChannelCentreFrequency")
-                print("Centre freqs len:", len(centre_freqs))
                 centre_freqs = centre_freqs[::3]
 
                 # There are 8 pressures per subset
                 pressures = bufr_msg.get_value("pressure")
-                print("Pressures len:", len(pressures))
-                pressures = pressures[::8]
+                pressures = pressures[pressure_offset::8]
 
                 # Only one wind speed and dir per subset
                 wind_speeds = bufr_msg.get_value("windSpeed")
                 wind_dirs = bufr_msg.get_value("windDirection")
-
-                print("Wind speed len:", len(wind_speeds))
-                print("Wind dirs len:", len(wind_dirs))
 
                 # variables are sometimes a single value per message
                 #  duplicate them into an array
@@ -296,7 +284,7 @@ def load_dataframe_from_csv(csv_path):
 
 # MAIN
 def main():
-    df_c3, df_vinc = get_data_for_cycle("20200201T1800Z")
+    df_c3, df_vinc = get_data_for_cycle("20200205T1800Z")
 
     print("C3 Dataframe:")
     df_c3.info()
@@ -394,16 +382,17 @@ def main():
     print("Number of filtered obs in Vinc dataframe: {:,d}".format(df_vinc.size))
     print()
 
-    do_zoom = False
+    do_zoom = True
     if do_zoom:
         # Grab a subset for closer examination
-        vinc_mean_lon = df_vinc['longitude'].mean()
-        vinc_mean_lat = df_vinc['latitude'].mean()
-        vinc_std_lon = df_vinc['longitude'].std()
-        vinc_std_lat = df_vinc['latitude'].std()
+        # Not mean or std at the moment since I've cherry picked an area
+        vinc_mean_lon = 152 #df_vinc['longitude'].mean()
+        vinc_mean_lat = -29 #df_vinc['latitude'].mean()
+        vinc_std_lon = 1.5 #df_vinc['longitude'].std()
+        vinc_std_lat = 2 #df_vinc['latitude'].std()
 
         # Filter on the zoomed subset
-        f = 0.25
+        f = 1
         df_vinc_filtered = df_vinc[
             ((vinc_mean_lon - f*vinc_std_lon) < df_vinc.longitude) &
             (df_vinc.longitude < (vinc_mean_lon + f*vinc_std_lon)) &
@@ -421,16 +410,16 @@ def main():
     # Plot lat/lon for the full channel
     plt.figure()
     centre_lon = 133
-    proj = crs.PlateCarree(central_longitude=centre_lon)
-    ax = plt.axes(projection=proj)
-    ax.coastlines()
+    #proj = crs.PlateCarree(central_longitude=centre_lon)
+    ax = plt.axes()#projection=proj)
+    #ax.coastlines()
 
     plt.title("Lat/Lon for {:.2f} THz Channel".format(target_f_c3*1e-12))
-    ax.plot(df_c3['longitude'], df_c3['latitude'], '+', color='r', label='C3', transform=crs.PlateCarree())
-    ax.plot(df_vinc['longitude'], df_vinc['latitude'], 'x', color='b', label="Vincent's", transform=crs.PlateCarree())
+    ax.plot(df_c3['longitude'], df_c3['latitude'], '+', color='r', label='C3')#, transform=crs.PlateCarree())
+    ax.plot(df_vinc['longitude'], df_vinc['latitude'], 'x', color='b', label="Vincent's")#, transform=crs.PlateCarree())
 
     if do_zoom:
-        plt.plot(df_vinc['longitude'], df_vinc['latitude'], 'x', color='g', label="Vincent's (filtered)")
+        plt.plot(df_vinc_filtered['longitude'], df_vinc_filtered['latitude'], 'x', color='g', label="Vincent's (filtered)")
 
     plt.legend(loc='lower left')
 
@@ -457,6 +446,7 @@ def main():
     plt.title("Vinc")
 
     if do_zoom:
+        plt.suptitle("Zoomed Region")
         wind_speed = df_vinc_filtered["wind_speed"]
     else:
         wind_speed = df_vinc["wind_speed"]
