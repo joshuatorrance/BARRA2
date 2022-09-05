@@ -2,7 +2,7 @@
 # module load python3/3.8.5
 # module load eccodes3
 #
-# Doesn't seem to work with analysis3 (eccodes? local table def for Vincent's bufrs?):
+# Doesn't seem to work with analysis3 (eccodes? local table def for NWCSAF bufrs?):
 # module load conda/analysis3-22.04
 
 # IMPORTS
@@ -17,6 +17,7 @@ from xml.etree.ElementInclude import include
 from pandas import concat as concat_dataframe, date_range, DataFrame, Series, read_csv
 from numpy import full, datetime64, unique
 from matplotlib import pyplot as plt, use
+import matplotlib.gridspec as gridspec
 
 #from cartopy import crs
 
@@ -38,12 +39,12 @@ PATH_C3 = join(DATA_DIR_C3, PATH_TEMPLATE_C3)
 
 TARBALL_STRUCTURE_C3 = "bufr/satwind/GOESBUFR_*.bufr"
 
-# Vincent
-VINC_NAME = "Vinc"
-DATA_DIR_VINC = "/g/data/ig2/SATWIND/nwcsaf_winds_experiment"
-PATH_TEMPLATE_VINC = "{month:02d}/S_NWC_HRW-WINDIWWG_HIMA08_HIMA-N-BS_{year:04d}{month:02d}{day:02d}T{hour:02d}{minute}00Z.bufr"
-PATH_VINC = join(DATA_DIR_VINC, PATH_TEMPLATE_VINC)
-#PATH_VINC = "/home/548/jt4085/testing/amvs_for_fiona/AMV_*.bufr"
+# NWCSAF
+NWCSAF_NAME = "NWCSAF"
+DATA_DIR_NWCSAF = "/g/data/ig2/SATWIND/nwcsaf_winds_experiment"
+PATH_TEMPLATE_NWCSAF = "{month:02d}/S_NWC_HRW-WINDIWWG_HIMA08_HIMA-N-BS_{year:04d}{month:02d}{day:02d}T{hour:02d}{minute}00Z.bufr"
+PATH_NWCSAF = join(DATA_DIR_NWCSAF, PATH_TEMPLATE_NWCSAF)
+#PATH_NWCSAF = "/home/548/jt4085/testing/amvs_for_fiona/AMV_*.bufr"
 
 # Cycle details
 CYCLE_DT_FORMAT = "%Y%m%dT%H%MZ"
@@ -56,7 +57,8 @@ COLUMN_NAMES_TYPES = {"datetime": 'datetime64[ns]',
                       "latitude": float,
                       "wind_speed": float,
                       "wind_direction": float,
-                      "channel centre frequency": float}
+                      "channel centre frequency": float,
+                      "quality indicator": float}
 
 # Path to save dataframes to save re-loading from bufrs
 DATAFRAME_DIR = "/scratch/hd50/jt4085/pandas_dataframes"
@@ -125,10 +127,10 @@ def get_data_for_cycle_c3(cycle_time, save_to_file=True):
     return df
 
 
-def get_data_for_cycle_vinc(cycle_time, save_to_file=True):
-    print(f"Getting Vincent's data for {cycle_time}")
+def get_data_for_cycle_nwcsaf(cycle_time, save_to_file=True):
+    print(f"Getting NWCSAF data for {cycle_time}")
 
-    dataframe_filepath = DATAFRAME_PATH.format(source=VINC_NAME, year=cycle_time.year,
+    dataframe_filepath = DATAFRAME_PATH.format(source=NWCSAF_NAME, year=cycle_time.year,
                                                month=cycle_time.month, day=cycle_time.day,
                                                hour=cycle_time.hour)
 
@@ -138,7 +140,7 @@ def get_data_for_cycle_vinc(cycle_time, save_to_file=True):
         earliest_dt = cycle_time - CYCLE_WIDTH / 2
         latest_dt = cycle_time + CYCLE_WIDTH / 2
 
-        # Vincent's data seems to be every 10 minutes.
+        # NWCSAF data seems to be every 10 minutes.
         # It also is only over a few months of 2020 - 02, 03, 04
         # Make an hourly date range and set minutes to *
         datetimes = date_range(earliest_dt, latest_dt, freq="1H",
@@ -148,7 +150,7 @@ def get_data_for_cycle_vinc(cycle_time, save_to_file=True):
         # Get all the files in the 6 hour window
         bufr_paths = []
         for dt in datetimes:
-            path = PATH_VINC.format(year=dt.year, month=dt.month, day=dt.day,
+            path = PATH_NWCSAF.format(year=dt.year, month=dt.month, day=dt.day,
                                     hour=dt.hour, minute="*")
 
             paths = glob(path)
@@ -157,7 +159,7 @@ def get_data_for_cycle_vinc(cycle_time, save_to_file=True):
             bufr_paths += paths
 
          # Load each bufr and add it to the dataframe
-        df = get_data_from_bufrs_vinc(bufr_paths, compressed=False)
+        df = get_data_from_bufrs_nwcsaf(bufr_paths, compressed=False)
 
         if save_to_file:
             df.to_csv(dataframe_filepath, index=False)
@@ -180,9 +182,9 @@ def get_data_for_cycle(cycle_time, save_to_file=True):
 
     # Grab the data from the two sources
     df_c3 = get_data_for_cycle_c3(cycle_time)
-    df_vinc = get_data_for_cycle_vinc(cycle_time)
+    df_nwcsaf = get_data_for_cycle_nwcsaf(cycle_time)
 
-    return df_c3, df_vinc
+    return df_c3, df_nwcsaf
 
 
 def get_data_from_bufrs_c3(bufr_paths, pres_wind_pre_str="#1#", compressed=False):
@@ -205,24 +207,35 @@ def get_data_from_bufrs_c3(bufr_paths, pres_wind_pre_str="#1#", compressed=False
                 pressures = bufr_msg.get_value(pres_wind_pre_str + "pressure")
                 wind_speeds = bufr_msg.get_value(pres_wind_pre_str + "windSpeed")
                 wind_dirs = bufr_msg.get_value(pres_wind_pre_str + "windDirection")
+                qis = bufr_msg.get_value(pres_wind_pre_str + "windSpeed->percentConfidence")
 
                 # There are 5 wind_speed and wind_dir per subset, #1# only gives us only 1
+                # I don't know which percentConfidence represents the QI, this is pure guess work
 
                 # variables are sometimes a single value per message
                 #  duplicate them into an array
                 if not isinstance(centre_freqs, Iterable):
                     centre_freqs = full(datetimes.shape, centre_freqs)
 
+                if not isinstance(lons, Iterable):
+                    lons = full(datetimes.shape, lons)
+
+                if not isinstance(lats, Iterable):
+                    lats = full(datetimes.shape, lats)
+
+                if not isinstance(qis, Iterable):
+                    qis = full(datetimes.shape, qis)
+
                 small_df = DataFrame(zip(datetimes, pressures, lons, lats,
-                                         wind_speeds, wind_dirs, centre_freqs),
-                                     columns=COLUMN_NAMES_TYPES.keys())
+                                         wind_speeds, wind_dirs, centre_freqs, qis),
+                                         columns=COLUMN_NAMES_TYPES.keys())
 
                 df = concat_dataframe([df, small_df])
 
     return df
 
 
-def get_data_from_bufrs_vinc(bufr_paths, compressed=False):
+def get_data_from_bufrs_nwcsaf(bufr_paths, compressed=False):
     # Create an empty dataframe specifying the column name and type
     df = DataFrame({col_name: Series(dtype=col_type)
                     for col_name, col_type in COLUMN_NAMES_TYPES.items()})
@@ -230,42 +243,122 @@ def get_data_from_bufrs_vinc(bufr_paths, compressed=False):
     for bufr_path in bufr_paths:
         print(f"        Getting data from", basename(bufr_path))
 
+        # Correct offset handling copied from Vincent's code at:
+        # https://git.nci.org.au/vov548/iwwg_bufr_io/-/blob/master/utility.py
+
         with BufrFile(bufr_path, compressed=compressed) as bufr:
             for bufr_msg in bufr.get_messages():
                 num_subsets = bufr_msg.get_value("numberOfSubsets")
 
                 datetimes = bufr_msg.get_datetimes()
 
-                # There are two lat/lon for each subset
-                lats, lons = bufr_msg.get_locations()
-                lats = lats[::2]
-                lons = lons[::2]
+                raw_lats, raw_lons = bufr_msg.get_locations()
+                raw_centre_freqs = bufr_msg.get_value("satelliteChannelCentreFrequency")
+                raw_pressures = bufr_msg.get_value("pressure")
 
-                # There are three centre_freqs per subset
-                centre_freqs = bufr_msg.get_value("satelliteChannelCentreFrequency")
-                centre_freqs = centre_freqs[::3]
+                raw_wind_speeds = bufr_msg.get_value("windSpeed")
+                raw_wind_dirs = bufr_msg.get_value("windDirection")
 
-                # There are 8 pressures per subset
-                pressures = bufr_msg.get_value("pressure")
-                pressures = pressures[pressure_offset::8]
+                DELAY_REPLICATION_NUM = 6
+                replication_factors = bufr_msg.get_value("delayedDescriptorReplicationFactor")
 
-                # Only one wind speed and dir per subset
-                wind_speeds = bufr_msg.get_value("windSpeed")
-                wind_dirs = bufr_msg.get_value("windDirection")
+                # Variables are sometimes a single value per message
+                # (all subset vals the same or one subset)
+                # So duplicate them into an array
+                if not isinstance(raw_centre_freqs, Iterable):
+                    raw_centre_freqs = full(datetimes.shape, raw_centre_freqs)
 
-                # variables are sometimes a single value per message
-                #  duplicate them into an array
-                if not isinstance(centre_freqs, Iterable):
-                    centre_freqs = full(datetimes.shape, centre_freqs)
+                if not isinstance(raw_wind_speeds, Iterable):
+                    raw_wind_speeds = full(datetimes.shape, raw_wind_speeds)
 
-                if not isinstance(wind_speeds, Iterable):
-                    wind_speeds = full(datetimes.shape, wind_speeds)
+                if not isinstance(raw_wind_dirs, Iterable):
+                    raw_wind_dirs = full(datetimes.shape, raw_wind_dirs)
 
-                if not isinstance(wind_dirs, Iterable):
-                    wind_dirs = full(datetimes.shape, wind_dirs)
+                # Setup the arrays for this message
+                lats, lons = [], []
+                centre_freqs, pressures = [], []
+                wind_speeds, wind_dirs = [], []
+                qis = []
+
+                # Setup the offsets and indices for looping though this message
+                lat_lon_offset = 0
+                pressure_offset = 0
+                centre_freq_offset = 0
+                wind_speed_dir_offset = 0
+
+                lat_lon_index = 0
+                pressure_index = 0
+                centre_freq_index = 0
+                wind_speed_dir_index = 0
+
+                for i in range(num_subsets):
+                    # Generate the indices
+#                    print(f"{i+1} / {num_subsets}")
+                    lat_lon_index += lat_lon_offset
+                    pressure_index += pressure_offset
+                    centre_freq_index += centre_freq_offset
+                    wind_speed_dir_index += wind_speed_dir_offset
+
+#                    print("\tLat/Lon:", lat_lon_index, lat_lon_offset)
+#                    print("\tPressure:", pressure_index, pressure_offset)
+#                    print("\tCentre Freq:", centre_freq_index, centre_freq_offset)
+#                    print("\tWind Speed/Dir:", wind_speed_dir_index, wind_speed_dir_offset)
+#                    print()
+
+                    # Append to the arrays
+                    lats.append(raw_lats[lat_lon_index])
+                    lons.append(raw_lons[lat_lon_index])
+
+                    pressures.append(raw_pressures[pressure_index])
+                    centre_freqs.append(raw_centre_freqs[centre_freq_index])
+
+                    wind_speeds.append(raw_wind_speeds[wind_speed_dir_index])
+                    wind_dirs.append(raw_wind_dirs[wind_speed_dir_index])
+
+                    # Generate the next set of indices
+                    # See link to Vincent's code above for explanation
+                    lat_lon_offset = 1 + replication_factors[(i * DELAY_REPLICATION_NUM) + 2]
+                    pressure_offset = 1 + replication_factors[(i * DELAY_REPLICATION_NUM)] + \
+                        replication_factors[(i * DELAY_REPLICATION_NUM) + 1] + 3 + 1
+                    centre_freq_offset = 1 + replication_factors[(i * DELAY_REPLICATION_NUM) + 1]
+                    wind_speed_dir_offset = 1
+
+                    # Quality Indicators
+                    # We want the percentConfidence when standardGeneratingApplication is equal to:
+                    #  4 -> Common IWWG QI
+                    #  5 -> QI without forecast
+                    #  6 -> QI with forecast
+                    # There are 4 generating app/percent confidence pairs per subset
+
+                    # I'm GUESSing we're interested in QI without forecast
+                    # TODO: Determine exactly which one we want.
+                    TARGET_GENERATING_APP = 5
+
+                    # Can't seem to get the lot of these fields as array like with the others
+                    # Perhaps because some of them are MISSING?
+                    # Getting them individually here instead. I.e. #1#blah for the first one.
+
+                    qi = None
+                    for j in range(4):
+                        # Index in bufr file starts from one, 4 per subset
+                        gen_app_index = 1 + i*4 + j
+
+                        gen_app = bufr_msg.get_value(f"#{gen_app_index}#standardGeneratingApplication")
+
+                        if gen_app is TARGET_GENERATING_APP:
+                            qi = bufr_msg.get_value(f"#{gen_app_index}#percentConfidence")
+
+                            break
+
+                    # This will break when there's no matching generating application. Fix it when it happens.
+                    if qi is None:
+                        raise IOError("No matching QI element found. "
+                                      "Probably need to do something about this case.")
+                    
+                    qis.append(qi)
 
                 small_df = DataFrame(zip(datetimes, pressures, lons, lats,
-                                         wind_speeds, wind_dirs, centre_freqs),
+                                         wind_speeds, wind_dirs, centre_freqs, qis),
                                      columns=COLUMN_NAMES_TYPES.keys())
 
                 df = concat_dataframe([df, small_df])
@@ -284,18 +377,19 @@ def load_dataframe_from_csv(csv_path):
 
 # MAIN
 def main():
-    df_c3, df_vinc = get_data_for_cycle("20200205T1800Z")
+    cycle = "20200306T0000Z"
+    df_c3, df_nwcsaf = get_data_for_cycle(cycle)
 
     print("C3 Dataframe:")
     df_c3.info()
     print()
-    print("Vinc Dataframe:")
-    df_vinc.info()
+    print("NWCSAF Dataframe:")
+    df_nwcsaf.info()
     print()
 
     # Obs Counts
     print("Number of obs in C3 dataframe: {:,d}".format(df_c3.size))
-    print("Number of obs in Vinc dataframe: {:,d}".format(df_vinc.size))
+    print("Number of obs in NWCSAF dataframe: {:,d}".format(df_nwcsaf.size))
     print()
 
     # Filter the dataframes to look at a single time only
@@ -303,8 +397,8 @@ def main():
     target = 0
     filter_time = None
     for c3_time in df_c3["datetime"].unique()[::-1]:
-        for vinc_time in df_vinc["datetime"].unique():
-            if c3_time == vinc_time:
+        for nwcsaf_time in df_nwcsaf["datetime"].unique():
+            if c3_time == nwcsaf_time:
                 if count >= target:
                     filter_time = c3_time
 
@@ -317,10 +411,10 @@ def main():
 
     print("Filtering dataframe - datetime =", filter_time)
     df_c3 = df_c3[filter_time == df_c3['datetime']]
-    df_vinc = df_vinc[filter_time == df_vinc['datetime']]
+    df_nwcsaf = df_nwcsaf[filter_time == df_nwcsaf['datetime']]
 
     # Channel Frequencies
-    for df, name in [(df_c3, "C3"), (df_vinc, "Vinc")]:
+    for df, name in [(df_c3, "C3"), (df_nwcsaf, "NWCSAF")]:
         print(f"Available Frequencies/Wavelenths for {name}:")
 
         unique_fs = df["channel centre frequency"].unique()
@@ -332,37 +426,37 @@ def main():
 
     # Let's filter on a 2 similar freq channels
     target_f_c3 = 2.72727e13
-    target_f_vinc = 2.680e+13
+    target_f_nwcsaf = 2.680e+13
 
     df_c3 = df_c3[
         (0.98*target_f_c3 < df_c3['channel centre frequency']) &
         (df_c3['channel centre frequency'] < 1.02*target_f_c3)
     ]
 
-    df_vinc = df_vinc[
-        (0.975*target_f_vinc < df_vinc['channel centre frequency']) &
-        (df_vinc['channel centre frequency'] < 1.025*target_f_vinc)
+    df_nwcsaf = df_nwcsaf[
+        (0.975*target_f_nwcsaf < df_nwcsaf['channel centre frequency']) &
+        (df_nwcsaf['channel centre frequency'] < 1.025*target_f_nwcsaf)
     ]
 
     # Filter on pressure level range
     p_min, p_max = 20000, 30000
-    
+
     def filter_df_for_pressure(df, pmin, pmax):
         return df[(pmin < df['pressure']) & (df['pressure'] < pmax)]
 
     # Build a list of counts at pressure levels
     pmins = []
     c3_pressure_counts = []
-    vinc_pressure_counts = []
+    nwcsaf_pressure_counts = []
     d_pressure = 10000
     for pmin in range(10000, 100000, d_pressure):
         pmins.append(pmin)
 
         c3_len = len(filter_df_for_pressure(df_c3, pmin, pmin+d_pressure))
-        vinc_len = len(filter_df_for_pressure(df_vinc, pmin, pmin+d_pressure))
+        nwcsaf_len = len(filter_df_for_pressure(df_nwcsaf, pmin, pmin+d_pressure))
 
         c3_pressure_counts.append(c3_len)
-        vinc_pressure_counts.append(vinc_len)
+        nwcsaf_pressure_counts.append(nwcsaf_len)
 
     # Now actually filter
     print(f"Filtering pressure from {p_min} to {p_max} hPa.")
@@ -373,157 +467,253 @@ def main():
         (df_c3['pressure'] < p_max)
     ]
 
-    df_vinc = df_vinc[
-        (p_min < df_vinc['pressure']) &
-        (df_vinc['pressure'] < p_max)
+    df_nwcsaf = df_nwcsaf[
+        (p_min < df_nwcsaf['pressure']) &
+        (df_nwcsaf['pressure'] < p_max)
     ]
 
     print("Number of filtered obs in C3 dataframe: {:,d}".format(df_c3.size))
-    print("Number of filtered obs in Vinc dataframe: {:,d}".format(df_vinc.size))
+    print("Number of filtered obs in NWCSAF dataframe: {:,d}".format(df_nwcsaf.size))
     print()
 
     do_zoom = True
     if do_zoom:
         # Grab a subset for closer examination
         # Not mean or std at the moment since I've cherry picked an area
-        vinc_mean_lon = 152 #df_vinc['longitude'].mean()
-        vinc_mean_lat = -29 #df_vinc['latitude'].mean()
-        vinc_std_lon = 1.5 #df_vinc['longitude'].std()
-        vinc_std_lat = 2 #df_vinc['latitude'].std()
+        nwcsaf_mean_lon = 123
+        nwcsaf_mean_lat = -10
+        nwcsaf_std_lon = 5
+        nwcsaf_std_lat = 2.5
+        # df_nwcsaf['longitude'].mean()
+        # df_nwcsaf['latitude'].mean()
+        # df_nwcsaf['longitude'].std()
+        # df_nwcsaf['latitude'].std()
 
         # Filter on the zoomed subset
         f = 1
-        df_vinc_filtered = df_vinc[
-            ((vinc_mean_lon - f*vinc_std_lon) < df_vinc.longitude) &
-            (df_vinc.longitude < (vinc_mean_lon + f*vinc_std_lon)) &
-            ((vinc_mean_lat - f*vinc_std_lat) < df_vinc.latitude) &
-            (df_vinc.latitude < (vinc_mean_lat + f*vinc_std_lat))
+        df_nwcsaf_filtered = df_nwcsaf[
+            ((nwcsaf_mean_lon - f*nwcsaf_std_lon) < df_nwcsaf.longitude) &
+            (df_nwcsaf.longitude < (nwcsaf_mean_lon + f*nwcsaf_std_lon)) &
+            ((nwcsaf_mean_lat - f*nwcsaf_std_lat) < df_nwcsaf.latitude) &
+            (df_nwcsaf.latitude < (nwcsaf_mean_lat + f*nwcsaf_std_lat))
         ]
 
         df_c3_filtered = df_c3[
-            ((vinc_mean_lon - f*vinc_std_lon) < df_c3.longitude) &
-            (df_c3.longitude < (vinc_mean_lon + f*vinc_std_lon)) &
-            ((vinc_mean_lat - f*vinc_std_lat) < df_c3.latitude) &
-            (df_c3.latitude < (vinc_mean_lat + f*vinc_std_lat))
+            ((nwcsaf_mean_lon - f*nwcsaf_std_lon) < df_c3.longitude) &
+            (df_c3.longitude < (nwcsaf_mean_lon + f*nwcsaf_std_lon)) &
+            ((nwcsaf_mean_lat - f*nwcsaf_std_lat) < df_c3.latitude) &
+            (df_c3.latitude < (nwcsaf_mean_lat + f*nwcsaf_std_lat))
         ]
 
-    # Plot lat/lon for the full channel
-    plt.figure()
-    centre_lon = 133
-    #proj = crs.PlateCarree(central_longitude=centre_lon)
-    ax = plt.axes()#projection=proj)
-    #ax.coastlines()
+    ### Plotting
+    figsize = 24, 6
+    fig = plt.figure(cycle, figsize=figsize)
 
-    plt.title("Lat/Lon for {:.2f} THz Channel".format(target_f_c3*1e-12))
+    ncols = 4
+    nrows = 1
+    subplot_index = 0
+
+    subplot_spec = gridspec.GridSpec(nrows, ncols, wspace=0.2, hspace=0.4)
+
+    plt.suptitle(cycle + " - {:.2f}THz Channel - {} to {} hPa".format(target_f_c3*1e-12, p_min, p_max))
+
+    # Plot lat/lon for the full channel
+    ax = plt.Subplot(fig, subplot_spec[subplot_index])
+    subplot_index += 1
+
+    ax.set_title("Lat/Lon for {:.2f} THz Channel".format(target_f_c3*1e-12))
     ax.plot(df_c3['longitude'], df_c3['latitude'], '+', color='r', label='C3')#, transform=crs.PlateCarree())
-    ax.plot(df_vinc['longitude'], df_vinc['latitude'], 'x', color='b', label="Vincent's")#, transform=crs.PlateCarree())
+    ax.plot(df_nwcsaf['longitude'], df_nwcsaf['latitude'], 'x', color='b', label="NWCSAF")#, transform=crs.PlateCarree())
 
     if do_zoom:
-        plt.plot(df_vinc_filtered['longitude'], df_vinc_filtered['latitude'], 'x', color='g', label="Vincent's (filtered)")
+        ax.plot(df_nwcsaf_filtered['longitude'], df_nwcsaf_filtered['latitude'], 'x', color='g', label="NWCSAF (zoomed)")
 
-    plt.legend(loc='lower left')
+    ax.legend(loc='lower right')
 
-    plt.xlabel("Longitude (degrees)")
-    plt.ylabel("Latitude (degrees)")
+    ax.set_xlabel("Longitude (degrees)")
+    ax.set_ylabel("Latitude (degrees)")
+
+    fig.add_subplot(ax)
 
     if do_zoom:
         # Plot lat/lon for the subset
-        plt.figure()
-        plt.title("Zoomed in Lat/Lon for {:.2f} THz Channel".format(target_f_c3*1e-12))
-        plt.plot(df_vinc_filtered['longitude'], df_vinc_filtered['latitude'], 'x', color='b', label="Vincent's")
-        plt.plot(df_c3_filtered['longitude'], df_c3_filtered['latitude'], '+', color='r', label='C3')
+        ax = plt.Subplot(fig, subplot_spec[subplot_index])
+        subplot_index += 1
 
-        plt.legend(loc='lower left')
+        ax.set_title("Zoomed in Lat/Lon for {:.2f} THz Channel".format(target_f_c3*1e-12))
+        ax.plot(df_nwcsaf_filtered['longitude'], df_nwcsaf_filtered['latitude'], 'x', color='b', label="NWCSAF")
+        ax.plot(df_c3_filtered['longitude'], df_c3_filtered['latitude'], '+', color='r', label='C3')
 
-        plt.xlabel("Longitude (degrees)")
-        plt.ylabel("Latitude (degrees)")
+        ax.legend(loc='lower left')
+
+        ax.set_xlabel("Longitude (degrees)")
+        ax.set_ylabel("Latitude (degrees)")
+
+        fig.add_subplot(ax)
 
     # Plot a histogram of wind speed and of wind dir for subsets
-    plt.figure()
+    sub_subplot_spec = gridspec.GridSpecFromSubplotSpec(2, 2,
+        subplot_spec=subplot_spec[subplot_index], wspace=0.2, hspace=0.2)
 
-    # Vinc's wind speed histogram
-    plt.subplot(2, 2, 1)
-    plt.title("Vinc")
+    subplot_index += 1
+    sub_subplot_index = 0
+
+    # NWCSAF wind speed histogram
+    ax = plt.Subplot(fig, sub_subplot_spec[sub_subplot_index])
+    sub_subplot_index += 1
+
+    ax.set_title("NWCSAF")
 
     if do_zoom:
-        plt.suptitle("Zoomed Region")
-        wind_speed = df_vinc_filtered["wind_speed"]
+#        ax.suptitle("Zoomed Region")
+        wind_speed = df_nwcsaf_filtered["wind_speed"]
     else:
-        wind_speed = df_vinc["wind_speed"]
-    plt.hist(wind_speed, 100, label="Wind Speed - Vincent's", color='b')
+        wind_speed = df_nwcsaf["wind_speed"]
+    ax.hist(wind_speed, 100, label="Wind Speed - NWCSAF", color='b')
     s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_speed.mean(), wind_speed.std())
-    plt.annotate(s, (0, 0), (0.65, 0.8), xycoords="axes fraction")
+    ax.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
 
-    plt.xlabel("Wind Speed (m/s)")
-    plt.ylabel("Occurance")
+    ax.set_xlabel("Wind Speed (m/s)")
+    ax.set_ylabel("Occurance")
+
+    fig.add_subplot(ax)
 
     # C3's wind speed histogram
-    plt.subplot(2, 2, 2)
-    plt.title("C3")
-    
+    ax = plt.Subplot(fig, sub_subplot_spec[sub_subplot_index])
+    sub_subplot_index += 1
+    ax.set_title("C3")
+
     if do_zoom:
         wind_speed = df_c3_filtered["wind_speed"]
     else:
         wind_speed = df_c3["wind_speed"]
-    plt.hist(wind_speed, 100, label="Wind Speed - C3", color='r')
-    
+    ax.hist(wind_speed, 100, label="Wind Speed - C3", color='r')
+
     s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_speed.mean(), wind_speed.std())
-    plt.annotate(s, (0, 0), (0.65, 0.8), xycoords="axes fraction")
+    ax.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
 
-    plt.xlabel("Wind Speed (m/s)")
+    ax.set_xlabel("Wind Speed (m/s)")
 
-    # Vinc's wind dir histogram
-    plt.subplot(2, 2, 3)
+    fig.add_subplot(ax)
+
+    # NWCSAF wind dir histogram
+    ax = plt.Subplot(fig, sub_subplot_spec[sub_subplot_index])
+    sub_subplot_index += 1
     if do_zoom:
-        wind_dir = df_vinc_filtered["wind_direction"]
+        wind_dir = df_nwcsaf_filtered["wind_direction"]
     else:
-        wind_dir = df_vinc["wind_direction"]
-    plt.hist(wind_dir, 100, label="Wind Direction - Vincent's", color='b')
-    
-    s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_dir.mean(), wind_dir.std())
-    plt.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
+        wind_dir = df_nwcsaf["wind_direction"]
+    ax.hist(wind_dir, 100, label="Wind Direction - NWCSAF", color='b')
 
-    plt.xlabel("Wind Direction (degrees)")
-    plt.ylabel("Occurance")
+    s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_dir.mean(), wind_dir.std())
+    ax.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
+
+    ax.set_xlabel("Wind Direction (degrees)")
+    ax.set_ylabel("Occurance")
+
+    fig.add_subplot(ax)
 
     # C3's wind dir histogram
-    plt.subplot(2, 2, 4)
+    ax = plt.Subplot(fig, sub_subplot_spec[sub_subplot_index])
+    sub_subplot_index += 1
     if do_zoom:
         wind_dir = df_c3_filtered["wind_direction"]
     else:
         wind_dir = df_c3["wind_direction"]
-    plt.hist(wind_dir, 100, label="Wind Direction - C3", color='r')
-    
-    s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_dir.mean(), wind_dir.std())
-    plt.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
+    ax.hist(wind_dir, 100, label="Wind Direction - C3", color='r')
 
-    plt.xlabel("Wind Direction (degrees)")
+    s = "Mean: {:.2f}\nStd: {:.2f}".format(wind_dir.mean(), wind_dir.std())
+    ax.annotate(s, (0, 0), (0.55, 0.8), xycoords="axes fraction")
+
+    ax.set_xlabel("Wind Direction (degrees)")
+
+    fig.add_subplot(ax)
 
     # Temporal profile
-    plt.figure()
+    if False:
+        plt.figure()
 
-    plt.title("Time vs. Latitude")
-    plt.plot(df_c3['datetime'], df_c3['latitude'], '+', color='r', label='C3')
-    plt.plot(df_vinc['datetime'], df_vinc['latitude'], 'x', color='b', label="Vincent's")
+        plt.title("Time vs. Latitude")
+        plt.plot(df_c3['datetime'], df_c3['latitude'], '+', color='r', label='C3')
+        plt.plot(df_nwcsaf['datetime'], df_nwcsaf['latitude'], 'x', color='b', label="NWCSAF")
 
-    plt.xlabel("Time (datetime)")
-    plt.ylabel("Latitude (degrees)")
+        plt.xlabel("Time (datetime)")
+        plt.ylabel("Latitude (degrees)")
 
-    plt.legend(loc='lower left')
+        plt.legend(loc='lower left')
 
     # Show the pressure level counts
+    ax = plt.Subplot(fig, subplot_spec[subplot_index])
+    subplot_index += 1
+
+    ax.set_title("Obs Counts at Pressure levels")
+
+    ax.plot(pmins, c3_pressure_counts, color='r', label='C3')
+    ax.plot(pmins, nwcsaf_pressure_counts, color='b', label="NWCSAF")
+
+    ax.axhline(0, color='k', linestyle='--')
+
+    ax.axvline(p_min, color='grey', linestyle=':')
+    ax.axvline(p_max, color='grey', linestyle=':')
+
+    ax.set_xlabel("Pressure (hPa)")
+    ax.set_ylabel("Obs Count")
+
+    ax.legend(loc='lower left')
+
+    fig.add_subplot(ax)
+
+
+    # Plot the QIs
+    c3_lon = df_c3_filtered['longitude']
+    c3_lat = df_c3_filtered['latitude']
+    c3_qi = df_c3_filtered["quality indicator"]
+
+    nwcsaf_lon = df_nwcsaf_filtered['longitude']
+    nwcsaf_lat = df_nwcsaf_filtered['latitude']
+    nwcsaf_qis = df_nwcsaf_filtered["quality indicator"]
+
+    min_x = min(c3_lon.min(), nwcsaf_lon.min())
+    max_x = max(c3_lon.max(), nwcsaf_lon.max())
+    min_y = min(c3_lat.min(), nwcsaf_lat.min())
+    max_y = max(c3_lat.max(), nwcsaf_lat.max())
+    min_z = min(c3_qi.min(), nwcsaf_qis.min())
+    max_z = max(c3_qi.max(), nwcsaf_qis.max())
+
+    cmap = 'jet'
+
     plt.figure()
 
-    plt.title("Obs Counts at Pressure levels")
+    plt.suptitle("Quality Indicators")
 
-    plt.plot(pmins, c3_pressure_counts, color='r', label='C3')
-    plt.plot(pmins, vinc_pressure_counts, color='b', label="Vincent's")
+    c3_ax = plt.subplot(1, 2, 1)
+    plt.title("C3 - probably wrong")
 
-    plt.axhline(0, color='k', linestyle='--')
-    plt.xlabel("Pressure (hPa)")
-    plt.ylabel("Obs Count")
+    plt.scatter(c3_lon, c3_lat,
+                c=c3_qi, cmap=cmap,
+                vmin=min_z, vmax=max_z)
 
-    plt.legend(loc='lower left')
+    plt.xlim((min_x, max_x))
+    plt.ylim((min_y, max_y))
+
+    plt.xlabel("Longitude (degrees)")
+    plt.ylabel("Latitude (degrees)")
+
+    nwcsaf_ax = plt.subplot(1, 2, 2)
+    plt.title("NWCSAF")
+
+    plt.scatter(nwcsaf_lon, nwcsaf_lat,
+                c=nwcsaf_qis, cmap=cmap,
+                vmin=min_z, vmax=max_z)
+
+    plt.xlim((min_x, max_x))
+    plt.ylim((min_y, max_y))
+
+    plt.xlabel("Longitude (degrees)")
+    plt.ylabel("Latitude (degrees)")
+
+    plt.colorbar(ax=(c3_ax, nwcsaf_ax))
+
 
     plt.show()
 
