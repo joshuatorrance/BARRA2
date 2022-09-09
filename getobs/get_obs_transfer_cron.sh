@@ -4,7 +4,7 @@
 # Input
 INPUT_USER="jtorranc"
 INPUT_URL="nwp-verification-dev"
-INPUT_DIR="/data/nwpv/barra2_getobs_jtorranc/GLB"
+INPUT_DIR="/data/nwpv/barra2_test_getobs_jtorranc/GLB"
 
 INPUT_HOST="$INPUT_USER@$INPUT_URL"
 INPUT_LOCATION="$INPUT_HOST:$INPUT_DIR"
@@ -27,6 +27,21 @@ DONE_COPY="done.copy"
 set -e
 
 echo "Script started at `date`"
+
+# Check the input directory exists
+if ssh $INPUT_HOST "test ! -e $INPUT_DIR"; then
+    echo "Input directory, $INPUT_DIR, not found on $INPUT_HOST"
+    echo "Exiting at `date`"
+    exit 1
+fi
+
+# Check the output directory exists
+if ssh $OUTPUT_HOST "test ! -e $out_done_path"; then
+    echo "Output directory, $OUTPUT_DIR, not found on $OUTPUT_HOST"
+    echo "Exiting at `date`"
+    exit 1
+fi
+
 
 # Get a list of cycles
 cycles=`ssh $INPUT_HOST ls $INPUT_DIR`
