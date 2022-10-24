@@ -15,7 +15,8 @@ OUTPUT_URL="gadi.nci.org.au"
 OUTPUT_DIR="/scratch/hd50/jt4085/get_obs"
 
 OUTPUT_HOST="$OUTPUT_USER@$OUTPUT_URL"
-OUTPUT_LOCATION="$OUTPUT_HOST:$OUTPUT_DIR"
+# Build the output loc later
+#OUTPUT_LOCATION="$OUTPUT_HOST:$OUTPUT_DIR"
 
 # Done files
 DONE_EXTRACT="done.extract"
@@ -50,8 +51,14 @@ cycles=`ssh $INPUT_HOST ls $INPUT_DIR`
 for cycle in $cycles; do
     echo $cycle
 
+    # Cycle should be YYYYMMDDThhmmZ
+    year=${cycle:0:4}
+    month=${cycle:4:2}
+
+    output_dir=$OUTPUT_DIR/$year/$month
+
     # Check if this cycle has already been transferred
-    out_done_path=$OUTPUT_DIR/$cycle/$DONE_COPY
+    out_done_path=$output_dir/$cycle/$DONE_COPY
     if ssh $OUTPUT_HOST "test -e $out_done_path"; then
         echo -e "\tCycle already copied to destination, skipping copying"
     else
@@ -60,14 +67,19 @@ for cycle in $cycles; do
         if ssh $INPUT_HOST "test -e $done_path"; then
             echo -e "\tCycle extraction complete."
 
-            # Copy files to the destination
+            # Build the paths
             in=$INPUT_LOCATION/$cycle
-            out=$OUTPUT_LOCATION
+            out=$OUTPUT_HOST:$output_dir
+
             echo -e "\tAttempting to copy"
             echo -e "\t$in"
             echo -e "\tto"
             echo -e "\t$out"
 
+            # Create the destination directory
+            ssh $OUTPUT_HOST "mkdir -p $output_dir"
+
+            # Copy the files
             scp -3 -r $in $out
 
             # Check scp's return code
@@ -81,8 +93,8 @@ for cycle in $cycles; do
                 exit 1
             fi
 
-            # Create .done file
-            ssh $OUTPUT_HOST "touch $OUTPUT_DIR/$cycle/$DONE_COPY"
+            # Create .done files
+            ssh $OUTPUT_HOST "touch $output_dir/$cycle/$DONE_COPY"
             ssh $INPUT_HOST "touch $INPUT_DIR/$cycle/$DONE_COPY"
         else
             echo -e "\tCycle extraction not finished yet."
