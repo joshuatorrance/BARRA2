@@ -98,4 +98,3 @@ for cycle in $cycles; do
 done
 
 echo "Script finished at `date`"
-
