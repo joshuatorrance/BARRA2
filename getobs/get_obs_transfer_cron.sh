@@ -12,7 +12,7 @@ INPUT_LOCATION="$INPUT_HOST:$INPUT_DIR"
 # Output
 OUTPUT_USER="jt4085"
 OUTPUT_URL="gadi.nci.org.au"
-OUTPUT_DIR="/scratch/hd50/jt4085/get_obs"
+OUTPUT_DIR="/g/data/hd50/barra2/data/obs/production"
 
 OUTPUT_HOST="$OUTPUT_USER@$OUTPUT_URL"
 # Build the output loc later
