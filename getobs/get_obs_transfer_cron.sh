@@ -1,5 +1,22 @@
 #!/bin/bash
 
+###
+# This script is intended for use with the BARRA2 project to deliver
+# obs extracted with GetObs from nwp-verification-dev to Gadi.
+#
+# This script assumes that ssh keys or similar are such that
+# passwords are not required to ssh to the input or output hosts.
+#
+# Run this script with a line in the crontab similar to:
+# 10 0,6,12,18 * * * /path/to/script/get_obs_transfer_cron.sh
+# add
+# MAILTO=email@address.com
+# to the start of the cron tab to have uncaptured stderr/stdout
+# emailed to the user.
+#
+# joshua.torrance@bom.gov.au
+###
+
 ## PARAMETERS
 # Input
 INPUT_USER="jtorranc"
