@@ -1,10 +1,16 @@
 # This script is intended to simple update a field in a netCDF file and
 # save the file.
 #
+# Use with something like find, e.g.
+# find /path/to/data -type f -name *.nc \
+#    -exec python3 /path/to/script/update_nc_field.py \
+#        -i {} -f "field" -v "value" \;
+#
 # Tested with:
 # module load conda/analysis3-22.04
 
 ## IMPORTS
+from os.path import basename
 from argparse import ArgumentParser
 from netCDF4 import Dataset
 
@@ -18,12 +24,15 @@ def parse_args():
                                         "\n\n"
                                         "Author: Joshua Torrance")
 
-    parser.add_argument("-i", "--input-file", nargs="?", required=True,
-                        help="File to update")
-    parser.add_argument("-f", "--field", nargs="?", required=True,
-                        help="Field to update")
-    parser.add_argument("-v", "--value", nargs="?", required=True,
-                        help="Value to update the field to")
+    parser.add_argument("-i", "--input-files", nargs="+", required=True,
+                        help="File/s to update")
+    parser.add_argument("-f", "--fields", nargs="+", required=True,
+                        help="Field/s to update")
+    parser.add_argument("-v", "--values", nargs="+", required=True,
+                        help="Value/s to update the field/s with (same order)")
+    parser.add_argument("-d", "--dry-run", required=False, action="store_true",
+                        help="Dry run of script, print values instead of "
+                             "changing them.")
 
     return parser.parse_args()
 
@@ -31,14 +40,30 @@ def parse_args():
 def main():
     args = parse_args()
 
-    input_file = args.input_file
-    field_name = args.field
-    field_value = args.value
+    input_files = args.input_files
+    field_names = args.fields
+    field_values = args.values
+    is_dry_run = args.dry_run
 
-    with Dataset(input_file, 'r+') as ds:
-        rcm_model = getattr(ds, "rcm_model")
-        if rcm_model == "BARRA-RE2" or rcm_model == "BARRA-R2":
-            setattr(ds, field_name, field_value)
+    assert len(field_names) == len(field_values), \
+        "Number of field name and values needds to be the same."
+
+    # Get the length of the longest field name for pretty printing
+    longest_name_len = max([len(s) for s in field_names])
+
+    # We don't need to open the file with edit for a dry run.
+    read_mode = "r" if is_dry_run else "r+"
+
+    for f in input_files:
+        print(basename(f))
+        with Dataset(f, read_mode) as ds:
+            for f, v in zip(field_names, field_values):
+                if is_dry_run:
+                    # Pad the name string to align values.
+                    print(f.ljust(longest_name_len), ":", getattr(ds, f))
+                else:
+                    setattr(ds, f, v)
+        print()
 
 
 if __name__ == "__main__":
