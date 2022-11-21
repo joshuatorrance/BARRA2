@@ -46,7 +46,7 @@ def main():
     is_dry_run = args.dry_run
 
     assert len(field_names) == len(field_values), \
-        "Number of field name and values needds to be the same."
+        "Number of field names and values needs to be the same."
 
     # Get the length of the longest field name for pretty printing
     longest_name_len = max([len(s) for s in field_names])
