@@ -1,10 +1,12 @@
-# This script is intended to simple update a field in a netCDF file and
+# This script is intended to simple update fields in a netCDF file and
 # save the file.
 #
 # Use with something like find, e.g.
 # find /path/to/data -type f -name *.nc \
 #    -exec python3 /path/to/script/update_nc_field.py \
-#        -i {} -f "field" -v "value" \;
+#        -d -f "field1" "field2" -v "value1" "value2" -i {} \;
+#
+# Remove -d (dry-run) to actually change data.
 #
 # Tested with:
 # module load conda/analysis3-22.04
