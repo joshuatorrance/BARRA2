@@ -2,13 +2,15 @@
 
 ## CONSTANTS
 # Data dirs
-GETOBS_DIR=/scratch/hd50/jt4085/get_obs
-G3_DIR=/scratch/hd50/sjr548/g3_obs
+GETOBS_DIR=/g/data/hd50/barra2/data/obs/production/2022/11
+G3_DIR=/scratch/hd50/jt4085/get_obs/2022-11_cycles_G3
 
 # Temp working dir to unpack obs to
 TEMP_DIR=/scratch/hd50/jt4085/tmp
 
 ## SCRIPT
+echo "Script started at `date`"
+
 # Create the temp dir
 temp_dir=$TEMP_DIR/g3_obs
 mkdir -p $temp_dir
@@ -37,9 +39,11 @@ for tarball in $G3_DIR/*.tar.gz; do
     date >> $log_path
 
     rsync -vv --archive --recursive --ignore-existing \
-        $temp_dir/* $getobs_cycle_dir >> $log_path
+        $temp_dir/bufr/* $getobs_cycle_dir/bufr >> $log_path
 
     echo -e "done."
+
+    echo $log_path
 
     # Delete unpacked files
     rm -rf $temp_dir/*
@@ -50,4 +54,6 @@ done
 rm -rf $temp_dir
 
 echo
+
+echo "Script finished at `date`"
 
