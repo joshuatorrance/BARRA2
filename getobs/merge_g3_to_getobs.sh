@@ -43,8 +43,6 @@ for tarball in $G3_DIR/*.tar.gz; do
 
     echo -e "done."
 
-    echo $log_path
-
     # Delete unpacked files
     rm -rf $temp_dir/*
 done
