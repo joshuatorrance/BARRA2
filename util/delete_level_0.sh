@@ -21,6 +21,8 @@ declare -A files_to_delete=(
     ["SLV3H"]="soil_mois av_roughness_len_tiles av_roughness_len soil_temp soil_mois_frozen_frac tiles_snow_depth av_rate_ssfc_runoff av_rate_snowmelt seaice av_uwnd_strs av_rate_sfc_runoff snow_amt_lnd av_vwnd_strs"
 )
 
+# Last Cycle - skip any cycle after this one
+LAST_CYCLE="20220630T1800Z"
 
 ## SCRIPT
 # Exit on any failure
@@ -65,6 +67,11 @@ for year_dir in $suite_dir/20??; do
             cycle=`basename $cycle_dir`
 
             echo -e "\t\t\t$cycle"
+
+            if [[ "$cycle" > "$LAST_CYCLE" ]]; then
+                echo -e "\t\t\t\tAfter LAST_CYCLE, skipping"
+                continue
+            fi
 
             # Add "nc" to the cycle path since we're only interested in the deterministic files
             cycle_dir="$cycle_dir/nc"
