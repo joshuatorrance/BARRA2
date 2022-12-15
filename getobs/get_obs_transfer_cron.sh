@@ -46,20 +46,36 @@ set -e
 
 echo "Script started at `date`"
 
+# Check input/output directories, ssh command will return
+#  0 if the directory exists
+#  1 if the directory doesn't exist
+#  other codes (i.e. 255) if unable to connect
+
 # Check the input directory exists
-if ssh $INPUT_HOST "test ! -e $INPUT_DIR"; then
+ssh $INPUT_HOST "[ -d $INPUT_DIR ]"
+ret=$?
+if [ $ret == 1  ]; then
     echo "Input directory, $INPUT_DIR, not found on $INPUT_HOST"
+    echo "Exiting at `date`"
+    exit 1
+elif [ $ret != 0 ]; then
+    echo "Unable to connect to $INPUT_HOST"
     echo "Exiting at `date`"
     exit 1
 fi
 
 # Check the output directory exists
-if ssh $OUTPUT_HOST "test ! -e $out_done_path"; then
+ssh $OUTPUT_HOST "[ -d $OUTPUT_DIR ]"
+ret=$?
+if [ $ret == 1 ]; then
     echo "Output directory, $OUTPUT_DIR, not found on $OUTPUT_HOST"
     echo "Exiting at `date`"
     exit 1
+elif [ $ret != 0 ]; then
+    echo "Unable to connect to $OUTPUT_HOST"
+    echo "Exiting at `date`"
+    exit 1
 fi
-
 
 # Get a list of cycles
 cycles=`ssh $INPUT_HOST ls $INPUT_DIR`
