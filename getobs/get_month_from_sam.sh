@@ -61,8 +61,18 @@ for cycle in $cycle_list; do
 
     # Build the dest paths
     dst_cycle_dir=$dst_month_dir/$cycle
+    dst_tarball_path=$dst_cycle_dir/${cycle}_obs.tar.gz
 
-    # Check the tarball exists
+    # Check if the tarball exists at the destination
+    echo -e "\tChecking if dest tarball already exists"
+    ssh $DST_HOST "[ -f $dst_tarball_path ]"
+    ret=$?
+    if [[ $ret == 0 ]]; then
+        echo -e "\tTarball already exists at dest, moving on"
+        continue
+    fi
+
+    # Check the source tarball exists
     echo -e "\tChecking source tarball exists"
     ssh $SRC_HOST "[ -f $src_tarball_path ]"
     ret=$?
