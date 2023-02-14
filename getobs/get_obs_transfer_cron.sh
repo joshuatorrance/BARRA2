@@ -94,7 +94,8 @@ for cycle in $cycles; do
             echo -e "\t$out"
 
             # Create the destination directory
-            ssh $OUTPUT_HOST "mkdir -p $output_dir"
+            # Give new dir 775 permissions
+            ssh $OUTPUT_HOST "mkdir -p -m 775 $output_dir"
 
             # Copy the files
             scp -3 -r $in $out
@@ -109,6 +110,10 @@ for cycle in $cycles; do
 
                 exit 1
             fi
+
+            # Fix permissions on new files
+            echo -e "\tFixing permissions (g+w)."
+            ssh $OUTPUT_HOST "chmod -R g+w $output_dir/$cycle"
 
             # Create .done files
             ssh $OUTPUT_HOST "touch $output_dir/$cycle/$DONE_COPY"
