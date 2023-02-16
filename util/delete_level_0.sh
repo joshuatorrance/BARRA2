@@ -2,7 +2,7 @@
 
 ## PARAMETERS
 ROOT_DIR=/g/data/hd50/barra2/data/prod
-TRASH_ROOT_DIR=$PWD/trash_to_delete
+TRASH_ROOT_DIR=$ROOT_DIR/scripts/trash_to_delete
 
 STREAMS="MDL10M MDL1H PRS1H PRS3H SLV10M SLV1H SLV3H"
 
@@ -26,12 +26,21 @@ declare -A files_to_delete=(
 # First Cycle - skip any cycle before this one
 # Leave blank or commented to disable
 FIRST_CYCLE="20070831T1800Z"
-FIRST_CYCLE="20080801T0000Z"
 
 # Last Cycle - skip any cycle after this one
 # Leave blank if not needed
 LAST_CYCLE="20080831T1800Z"
-LAST_CYCLE="20080831T1800Z"
+
+
+## FUNCTIONS
+# Explained in detail here:
+# https://dev.to/meleu/how-to-join-array-elements-in-a-bash-script-303a
+function join_by {
+    local delim=${1-} first_arg=${2-}
+    if shift 2; then
+        printf %s "$first_arg" "${@/#/$delim}"
+    fi
+}
 
 
 ## SCRIPT
@@ -126,49 +135,42 @@ for year_dir in $suite_dir/20??; do
                             echo -e "\t\t\t\t\t\tMoving entire tarball to trash"
                             mv $tarball_path $trash_loc
                         else
-                            # Unpack each file from the tarball
-                            for file in $stream_files_to_delete; do
-                                echo -e "\t\t\t\t\t\t$file"
+                            # Build the list of internal paths to use with tar
+                            # Add the -barra_r*.nc to ensure ta10 doesn't match ta1000 etc.
+                            prefix="nc/$stream/"
+                            suffix="-barra_r*.nc"
 
-                                # Add the -barra_r to ensure ta10 doesn't match ta1000 etc.
-                                internal_path="nc/$stream/${file}-barra_r*.nc"
+                            middle_of_list=`join_by "$suffix $prefix" $stream_files_to_delete`
+                            stream_files_for_tar="$prefix$middle_of_list$suffix"
 
-                                # Check if the file is in the tarball
-                                # Silence the output and check the return code
-                                # Suppress set -e for this command
-                                set +e
-                                tar --list --file=$tarball_path --wildcards $internal_path \
-                                    > /dev/null 2>&1
-                                ret=$?
-                                set -e
+                            # Check if any of the files are in the tarball
+                            # Turn the list of files into regex by replacing " "
+                            #   Add -barra-r to avoid collitions (i.e. ta10 matching ta100)
+                            #   Add | for regex OR
+                            regex=`echo $stream_files_to_delete | tr ' ' "-barra_r|"`
+                            regex=${stream_files_to_delete// /-barra_r|}
 
-                                if [ $ret -eq 0 ]; then
-                                    # File exists
+                            # Get the contents of the tarball
+                            output=`tar --verbose --list --file=$tarball_path`
 
-                                    # Extract the file from the tarball
-                                    echo -e "\t\t\t\t\t\t\tExtracting from tarball"
-                                    tar --extract --file=$tarball_path \
-                                        -C $trash_loc  \
-                                        --wildcards $internal_path
+                            if [[ $output =~ $regex ]]; then
+                                # If any of the files are present then extract
+                                # them to the trash
+                                # tar throws an error if some of the files are missing so suppress set -e
+                                echo -e "\t\t\t\t\t\t\tExtracting files from tarball"
+                                tar --extract \
+                                    --file=$tarball_path \
+                                    -C $trash_loc  \
+                                    --wildcards $stream_files_for_tar
 
-                                    # Delete the file from the tarball
-                                    echo -e "\t\t\t\t\t\t\tDeleting from tarball"
-                                    tar --file=$tarball_path \
-                                        --wildcards $internal_path \
-                                        --delete
-                                else
-                                    echo -e "\t\t\t\t\t\t\tNot in tarball"
-                                    
-                                    # Check the file is in the trash
-                                    if [ -f $trash_loc/$internal_path ]; then
-                                        echo -e "\t\t\t\t\t\t\tFile in trash"
-                                    else
-                                        echo -e "\t\t\t\t\t\t\tFile not found in trash"
-                                        echo -e "\t\t\t\t\t\t\tContinuing since there is nothing to do"
-                                        continue
-                                    fi
-                                fi
-                            done
+                                # Delete the files from the tarball
+                                echo -e "\t\t\t\t\t\t\tDeleting files from tarball"
+                                tar --delete \
+                                    --file=$tarball_path \
+                                    --wildcards $stream_files_for_tar
+                            else
+                                echo -e "\t\t\t\t\t\tNo relevant files found in tarball."
+                            fi
                         fi
                     else
                         # Check the tarball is in the trash
@@ -182,13 +184,8 @@ for year_dir in $suite_dir/20??; do
                     fi
                 done
             done
-
-            # TODO: Remove the following two lines
-            #echo "Finished testing on cycle: $cycle"
-            #exit 0
         done
     done
 done
 
 echo -e "\nScript finished at `date`"
-
