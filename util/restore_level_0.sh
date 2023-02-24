@@ -4,7 +4,8 @@
 ROOT_DIR=/g/data/hd50/barra2/data/prod
 TRASH_ROOT_DIR=$ROOT_DIR/scripts/trash_to_delete
 
-STREAMS="MDL10M MDL1H PRS1H PRS3H SLV10M SLV1H SLV3H"
+#STREAMS="MDL10M MDL1H PRS1H PRS3H SLV10M SLV1H SLV3H"
+STREAMS="SLV10M SLV1H"
 
 # Ensemble names
 # Use "deterministic" to add nothing to the path
@@ -22,9 +23,9 @@ declare -A files_to_restore=(
     ["MDL1H"]="NONE"
     ["PRS1H"]="NONE"
     ["PRS3H"]="NONE"
-    ["SLV10M"]="NONE"
-    ["SLV1H"]="min_temp_scrn av_ttl_cld"
-    ["SLV3H"]="ALL"
+    ["SLV10M"]="temp_scrn qsair_scrn"
+    ["SLV1H"]="sfc_pres"
+    ["SLV3H"]="NONE"
 )
 
 # First Cycle - skip any cycle before this one
@@ -114,19 +115,33 @@ for user_dir in $TRASH_ROOT_DIR/*; do
               stream_dir=$ens_dir/nc/$stream
               stream_files_to_restore=${files_to_restore[$stream]}
 
-              # TODO: Restore files that have been "deteled" as a whole tarball
-              # Currently only looks in unpacked nc/[stream]/*.nc dir
+              trash_tarball_path=$ens_dir/$stream.tar
+              trash_extract_path=$ens_dir/nc/$stream
+
+              if [[ "NONE" == "$stream_files_to_restore" ]]; then
+                echo -e "\t\t\t\t\tRestoring nothing"
+
+                # Nothing to do so continue
+                continue
+              else
+                # If there's a tarball in the trash then extract it
+                # (and delete the extracted files later)
+                if [ -f $trash_tarball_path ]; then
+                  echo -e "\t\t\t\t\tExtracting files from trash tarball"
+
+                  # TODO: ideally only some files need extracting
+                  # Just extracting everything at the moment
+                  tar --extract \
+                    --file $trash_tarball_path \
+                    -C $ens_dir
+                fi
+              fi
 
               if [[ "ALL" == "$stream_files_to_restore" ]]; then
                 echo -e "\t\t\t\t\tRestoring all"
 
                 # Use shorter relative path so internal path is correct
                 filepaths_to_restore="nc/$stream/*-barra_r*.nc"
-              elif [[ "NONE" == "$stream_files_to_restore" ]]; then
-                echo -e "\t\t\t\t\tRestoring nothing"
-
-                # Nothing to do so continue
-                continue
               else
                 echo -e "\t\t\t\t\tRestoring $stream_files_to_restore"
 
@@ -153,7 +168,7 @@ for user_dir in $TRASH_ROOT_DIR/*; do
               fi
 
               # Add files into the tarball
-              # Wildcards are tricker in this scenario
+              # Wildcards are tricky in this scenario
               # Use cd in a subscope, (), instead of -C/--directory
               echo -e "\t\t\t\t\tRestoring files to tarball"
               (cd $ens_dir && \
@@ -161,8 +176,12 @@ for user_dir in $TRASH_ROOT_DIR/*; do
                  --file $restore_tarball_path \
                  $filepaths_to_restore)
 
-              # TODO: Delete files from the trash?
-              # Maybe just leave them there? It's the trash bin after all....
+              # If there's a tarball and extracted files in the trash
+              # then remove the files
+              if [ -f $trash_tarball_path ] && [ -d $trash_extract_path ]; then
+                  echo -e "\t\t\t\t\tCleaning up extracted trash files"
+                  rm -r $trash_extract_path
+              fi
             done
           done
         done
