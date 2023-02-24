@@ -18,8 +18,8 @@ declare -A files_to_delete=(
     ["MDL1H"]="ALL"
     ["PRS1H"]="ALL"
     ["PRS3H"]="ALL"
-    ["SLV10M"]="ALL"
-    ["SLV1H"]="cs_up_lw_radlev av_land_evap_pot av_cs_up_lw_flx max_temp_scrn sb_cin av_rate_ls_prcp soil_mois av_oswrad_flx av_rate_ls_snow av_rate_conv_snow av_rate_evap_canopy av_swsfcdown sfc_pres av_rate_evap_soil av_cs_up_sw_flx av_low_cld av_evap_sea av_rate_transpiration av_lat_hflx av_swirrtop av_mid_cld cs_dsfc_lw_flx min_temp_scrn av_netlwsfc av_netswsfc av_olr ttl_col_qcf soil_mois_frozen_frac av_lwsfcdown cs_dsfc_sw_flx ttl_col_q av_sens_hflx cs_usfc_sw_flx abl_ht av_prcp_rate av_ttl_cld ttl_col_qcl sb_cape av_hi_cld"
+    ["SLV10M"]="vwnd10m_b mslp sfc_sw_dir max_wndgust10m sfc_temp uwnd10m_b"
+    ["SLV1H"]="cs_up_lw_radlev av_land_evap_pot av_cs_up_lw_flx max_temp_scrn sb_cin av_rate_ls_prcp soil_mois av_oswrad_flx av_rate_ls_snow av_rate_conv_snow av_rate_evap_canopy av_swsfcdown av_rate_evap_soil av_cs_up_sw_flx av_low_cld av_evap_sea av_rate_transpiration av_lat_hflx av_swirrtop av_mid_cld cs_dsfc_lw_flx min_temp_scrn av_netlwsfc av_netswsfc av_olr ttl_col_qcf soil_mois_frozen_frac av_lwsfcdown cs_dsfc_sw_flx ttl_col_q av_sens_hflx cs_usfc_sw_flx abl_ht av_prcp_rate av_ttl_cld ttl_col_qcl sb_cape av_hi_cld"
     ["SLV3H"]="soil_mois av_roughness_len_tiles av_roughness_len soil_temp soil_mois_frozen_frac tiles_snow_depth av_rate_ssfc_runoff av_rate_snowmelt seaice av_uwnd_strs av_rate_sfc_runoff snow_amt_lnd av_vwnd_strs"
 )
 
