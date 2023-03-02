@@ -1,4 +1,4 @@
-# This script is intended to simple update fields in a netCDF file and
+# This script is intended to simply update fields in a netCDF file and
 # save the file.
 #
 # Use with something like find, e.g.
@@ -6,18 +6,18 @@
 #    -exec python3 /path/to/script/update_nc_field.py \
 #        -d -f "field1" "field2" -v "value1" "value2" -i {} \;
 #
-# Remove -d (dry-run) to actually change data.
+# Remove -d (--dry-run) to actually change data.
 #
 # Tested with:
 # module load conda/analysis3-22.04
+#
+# Author: Joshua Torrance, jt4085
 
 ## IMPORTS
 from os.path import basename
 from argparse import ArgumentParser
 from netCDF4 import Dataset
 
-
-## PARAMETERS
 
 ## MAIN
 def parse_args():
