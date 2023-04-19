@@ -17,7 +17,6 @@ echo "Script started at `date`"
 # Get the year and month from the command line
 if [ $# -ne 2 ]; then
     echo "merge_g3_to_getobs.sh YYYY MM"
-    echo $#
     exit 1
 else
     year=$1
