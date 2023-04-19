@@ -1,9 +1,12 @@
 #!/bin/bash
 
 ## CONSTANTS
+YEAR=2023
+MONTH=01
+
 # Data dirs
-GETOBS_DIR=/g/data/hd50/barra2/data/obs/production/2022/11
-G3_DIR=/scratch/hd50/jt4085/get_obs/2022-11_cycles_G3
+GETOBS_ROOT_DIR=/g/data/hd50/barra2/data/obs/production
+G3_ROOT_DIR=/scratch/hd50/jt4085/get_obs/g3_from_sam
 
 # Temp working dir to unpack obs to
 TEMP_DIR=/scratch/hd50/jt4085/tmp
@@ -11,17 +14,32 @@ TEMP_DIR=/scratch/hd50/jt4085/tmp
 ## SCRIPT
 echo "Script started at `date`"
 
+# Get the year and month from the command line
+if [ $# -ne 2 ]; then
+    echo "merge_g3_to_getobs.sh YYYY MM"
+    echo $#
+    exit 1
+else
+    year=$1
+    month=$2
+fi
+
+# Build the paths to process
+getobs_dir=$GETOBS_ROOT_DIR/$year/$month
+g3_dir=$G3_ROOT_DIR/$year/$month/*
+
+
 # Create the temp dir
 temp_dir=$TEMP_DIR/g3_obs
 mkdir -p $temp_dir
 
 # Process the tarballs
-for tarball in $G3_DIR/*.tar.gz; do
+for tarball in $g3_dir/*.tar.gz; do
     cycle=`basename $tarball | head -c 14`
     echo $cycle
 
     # Create the directory if it doesn't already exist
-    getobs_cycle_dir=$GETOBS_DIR/$cycle
+    getobs_cycle_dir=$getobs_dir/$cycle
     mkdir -pv $getobs_cycle_dir
 
     # Upack tarball to temp_dir
