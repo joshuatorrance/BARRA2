@@ -11,15 +11,21 @@ DST_DIR=/scratch/hd50/jt4085/get_obs/g3_from_sam
 ## SCRIPTS
 echo "Script started at `date`"
 
-# Get the year and month from the command line
-if [[ $# != 2 ]]; then
-    echo "Two command line args expected, got $#"
-    echo "Usage: ./get_month_from_sam.sh [4 digit year] [2 digit month]"
+# Parse the command line options
+if [[ $# = 2 ]]; then
+    # Get the year and month from the command line
+    year=$1
+    month=$2
+elif [[ $# = 1 && $1 = "last" ]]; then
+    # Get the year and month for the pevious month to now
+    year=`date --date='-1 month' +%Y`
+    month=`date --date='-1 month' +%m`
+else
+    echo "One or two command line args expected, got $#"
+    echo "Usage to get a specific month: ./get_month_from_sam.sh YYYY MM"
+    echo "Usage to get the previous month: ./get_month_from_sam.sh last"
     exit 1
 fi
-
-year=$1
-month=$2
 
 # Check the length of year and month and whether they're integers
 if [[ $year =~ ^[0-9]{4}$ ]]; then
