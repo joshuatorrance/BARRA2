@@ -6,11 +6,14 @@ DEST_DIR="/scratch/hd50/jt4085/tarballs_from_tape"
 # Date format for `date`
 DATE_FMT='+%Y%m%dT%H%M'
 
-START_CYCLE=20070901T0000
-END_CYCLE=20080901T0000
+START_CYCLE=20070930T1200
+END_CYCLE=20071101T0000
 
 ENS_MEMBERS="000 001 002 003 004 005 006 007 008 009 ctl"
+ENS_MEMBERS="000 001 002 003 004 005 006 007 008 009 ctl det"
+#ENS_MEMBERS="det"
 STREAMS="MDL10M MDL1H MDL3H MDL6H PRS1H PRS3H SLV10M SLV1H SLV3H"
+STREAMS="SLV10M"
 
 
 ## Script
@@ -37,7 +40,11 @@ do
         dest_dir="$DEST_DIR/$year/$month/${cycle}Z/$ens/nc"
 
         # Build the source directory
-        src_dir="$SRC_DIR/$year/$month/${cycle}Z/$ens/nc"
+        if [ "$ens" = "det" ]; then
+            src_dir="$SRC_DIR/$year/$month/${cycle}Z/nc"
+        else
+            src_dir="$SRC_DIR/$year/$month/${cycle}Z/$ens/nc"
+        fi
 
         # Create the dest directory
         echo -e "\t\tCreating destination directory"
@@ -66,8 +73,8 @@ do
     done
 
     # Next cycle
-    # FIXME: why is date off by 3 hours?
-    cycle=$(date $DATE_FMT -d "$cycle - 3 hours + 6 hours")
+    # Date doesn't like the T in the cycle so remove it
+    cycle=$(TZ=UTC date $DATE_FMT -d "${cycle//T/ } + 6 hours")
 done
 
 echo "Script finished at `date`"
