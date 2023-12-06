@@ -36,7 +36,8 @@ else
     exit 1
 fi
 
-if [[ $month =~ ^[0-9]{2}$ && 1 -le $month  && $month -le 12 ]]; then
+# Use ${month#0} to ensure zero padded month is treated as a decimal number
+if [[ $month =~ ^[0-9]{2}$ && 1 -le ${month#0}  && ${month#0} -le 12 ]]; then
     echo "Month: $month"
 else
     echo "Month doesn't seem to the valid: $month"
