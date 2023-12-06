@@ -38,7 +38,8 @@ else
     exit 1
 fi
 
-if [[ $month =~ ^[0-9]{2}$ && 1 -le $month  && $month -le 12 ]]; then
+# Use ${month#0} to ensure zero padded month is treated as a decimal number
+if [[ $month =~ ^[0-9]{2}$ && 1 -le ${month#0}  && ${month#0} -le 12 ]]; then
     echo "Month: $month"
 else
     echo "Month doesn't seem to the valid: $month"
@@ -48,15 +49,73 @@ fi
 
 # Build the paths to process
 getobs_dir=$GETOBS_ROOT_DIR/$year/$month
-g3_dir=$G3_ROOT_DIR/$year/$month/*
+g3_dir=$G3_ROOT_DIR/$year/$month
 
+# Check all the required data is present
+# Calculate the number of cycles in the given month
+n_days=$(date '+%d' -d "${year}${month}01 0000 + 1 month - 1 second")
+n_cycles=$((n_days*4))
+
+# For GetObs check the number of done.copy files
+if [ -d $getobs_dir ]; then
+    n_donefiles=$(find $getobs_dir -type f -name done.copy | wc -l)
+
+    if [ $n_donefiles -eq $n_cycles ]; then
+        echo "Expected number of done files found for GetObs ($n_cycles)."
+    else
+        echo "Didn't find the expected number of done files for GetObs."
+        echo "Only found $n_donefiles instead of $n_cycles."
+        echo "Exiting."
+        exit 1
+    fi
+else
+    echo "No GetObs directory found for this month."
+    echo "Exiting."
+    exit 1
+fi
+
+# For G3 check the number of tarballs
+if [ -d $g3_dir ]; then
+    n_tarballs=$(find $g3_dir -type f -name *.tar.gz | wc -l)
+
+    if [ $n_tarballs -eq $n_cycles ]; then
+        echo "Expected number of tarballs found for G3 ($n_cycles)."
+    else
+        echo "Didn't find the expected number of tarballs for G3."
+        echo "Only found $n_tarballs instead of $n_cycles."
+        echo "Exiting."
+        exit 1
+    fi
+else
+    echo "No G3 directory found for this month."
+    echo "Exiting."
+    exit 1
+fi
+
+# Now check to see if we've already merged this month by counting log files.
+n_logs=$(find $getobs_dir -type f -name merge_g3.log | wc -l)
+if [ $n_logs -gt 0 ]; then
+    if [ $n_logs -eq $n_cycles ]; then
+        echo "$n_logs log files found for this month, it has already been merged."
+        echo "Exiting."
+        exit 0
+    else
+        echo "$n_logs log files found for this month, has already been partially merged?"
+        echo "Exiting."
+        exit 1
+    fi
+else
+    echo "No log files found for the merge. No previous attempts as expected."
+fi
+
+exit 0
 
 # Create the temp dir
 temp_dir=$TEMP_DIR/g3_obs
 mkdir -p $temp_dir
 
 # Process the tarballs
-for tarball in $g3_dir/*.tar.gz; do
+for tarball in $g3_dir/*/*.tar.gz; do
     cycle=`basename $tarball | head -c 14`
     echo $cycle
 
