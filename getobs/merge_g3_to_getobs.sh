@@ -148,7 +148,7 @@ for tarball in $g3_dir/*/*.tar.gz; do
     echo -e "done."
 
     echo -ne "\tFixing dest permissions..."
-    chmod -R g+w $getobs_cycle_dir/bufr
+    chmod -R g+rwx $getobs_cycle_dir/bufr
     echo -e "done."
 
     # Delete unpacked files
