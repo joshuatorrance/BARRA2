@@ -108,8 +108,6 @@ else
     echo "No log files found for the merge. No previous attempts as expected."
 fi
 
-exit 0
-
 # Create the temp dir
 temp_dir=$TEMP_DIR/g3_obs
 mkdir -p $temp_dir
@@ -147,6 +145,10 @@ for tarball in $g3_dir/*/*.tar.gz; do
     rsync -vv --archive --recursive --ignore-existing \
         $temp_dir/bufr/* $getobs_cycle_dir/bufr >> $log_path
 
+    echo -e "done."
+
+    echo -ne "\tFixing dest permissions..."
+    chmod -R g+w $getobs_cycle_dir/bufr
     echo -e "done."
 
     # Delete unpacked files
